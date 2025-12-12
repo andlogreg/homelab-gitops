@@ -3,3 +3,4 @@ kind: Kustomization
 namespace: littlelink
 resources:
   - ../../base/littlelink
+  - cloudflared.yaml
