@@ -1,0 +1,32 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: littlelink
+data:
+  META_TITLE: Andlogreg
+  META_DESCRIPTION: Tinkerer | Doer
+  META_AUTHOR: Andlogreg
+  META_KEYWORDS: HomeLab, HTML, CSS, Engineering
+  LANG: en
+  META_INDEX_STATUS: all
+  OG_SITE_NAME: Andlogreg
+  OG_TITLE: Andlogreg
+  OG_DESCRIPTION: Andlogreg's Home
+  OG_URL: https://TODO.COM
+  OG_IMAGE: https://pbs.twimg.com/profile_images/1854233793453817873/W9MHpOdp_400x400.jpg
+  OG_IMAGE_WIDTH: "400"
+  OG_IMAGE_HEIGHT: "400"
+  GA_TRACKING_ID: G-XXXXXXXXXX
+  THEME: Dark
+  FAVICON_URL: https://pbs.twimg.com/profile_images/1854233793453817873/W9MHpOdp_x96.jpg
+  AVATAR_URL: https://pbs.twimg.com/profile_images/1854233793453817873/W9MHpOdp_200x200.jpg
+  AVATAR_2X_URL: https://pbs.twimg.com/profile_images/1854233793453817873/W9MHpOdp_400x400.jpg
+  AVATAR_ALT: Andlogreg Profile Pic
+  NAME: Andlogreg
+  BIO: Tinkerer | Doer
+  BUTTON_ORDER: "GITHUB,SUBSTACK,THREADS,X"
+  GITHUB: https://github.com/andlogreg
+  X: https://x.com/andlogreg
+  THREADS: https://www.threads.net/@andlogreg
+  SUBSTACK: https://andlogreg.substack.com
+  FOOTER: Andlogreg © 2025
