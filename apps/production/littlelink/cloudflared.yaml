@@ -29,11 +29,8 @@ spec:
           command:
             - cloudflared
             - tunnel
-            - --no-autoupdate
-            - --loglevel
-            - info
-            - --metrics
-            - 0.0.0.0:2000
+            - --config
+            - /etc/cloudflared/config/config.yaml
             - run
           livenessProbe:
             httpGet:
@@ -44,3 +41,30 @@ spec:
             failureThreshold: 1
             initialDelaySeconds: 10
             periodSeconds: 10
+          volumeMounts:
+          - name: config
+            mountPath: /etc/cloudflared/config
+            readOnly: true
+    volumes:
+      - name: config
+        configMap:
+          name: cloudflared
+          items:
+          - key: config.yaml
+            path: config.yaml
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cloudflared
+data:
+  config.yaml: |
+    metrics: 0.0.0.0:2000
+    no-autoupdate: true
+    ingress:
+    - hostname: links.andlogreg.work
+      service: http://littlelink:3000
+    - hostname: links.andlogreg.work
+      service: hello_world
+    # This rule matches any traffic which didn't match a previous rule, and responds with HTTP 404.
+    - service: http_status:404
