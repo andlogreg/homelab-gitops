@@ -4,3 +4,4 @@ namespace: littlelink
 resources:
   - ../../base/littlelink
   - cloudflared.yaml
+  - cloudflared-secret.yaml

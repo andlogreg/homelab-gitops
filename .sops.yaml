@@ -1,0 +1,5 @@
+# NOTE: Once managing multiple clusters, rules should specified
+# per path. So that different keys are used for different clusters.
+creation_rules:
+  - encrypted_regex: '^(data|stringData)$'
+    age: age1xcvacn074h50msqhvjtdytnm6fxkez3f4546lmvqh529qt2svycqs8j2nj
