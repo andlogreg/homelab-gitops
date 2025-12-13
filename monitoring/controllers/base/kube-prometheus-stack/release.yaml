@@ -28,3 +28,8 @@ spec:
   values:
     grafana:
       adminPassword: whoami # pragma: allowlist secret
+      ingress:
+        enabled: true
+        ingressClassName: traefik
+        hosts:
+          - grafana.andlogreg.work
