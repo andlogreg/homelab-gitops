@@ -11,6 +11,6 @@ spec:
       sourceRef:
         kind: HelmRepository
         name: akri
-        namespace: monitoring
+        namespace: akri
       interval: 12h
   # https://github.com/project-akri/akri/blob/main/deployment/helm/values.yaml
