@@ -24,9 +24,16 @@ data:
   AVATAR_ALT: Andlogreg Profile Pic
   NAME: Andlogreg
   BIO: Tinkerer | Doer
-  BUTTON_ORDER: "GITHUB,SUBSTACK,THREADS,X"
+  BUTTON_ORDER: "LEAKS,GITHUB,SUBSTACK,THREADS,X,RSS"
+  CUSTOM_BUTTON_TEXT: "Memory Leaks"
+  CUSTOM_BUTTON_URL: "https://andlogreg.work"
+  CUSTOM_BUTTON_COLOR: "#000000"
+  CUSTOM_BUTTON_TEXT_COLOR "#ffffff"
+  CUSTOM_BUTTON_ALT_TEXT: "Where thoughts escape my mental RAM"
+  CUSTOM_BUTTON_NAME: "LEAKS"
+  CUSTOM_BUTTON_ICON: "fas fa-brain"
   GITHUB: https://github.com/andlogreg
   X: https://x.com/andlogreg
   THREADS: https://www.threads.net/@andlogreg
-  SUBSTACK: https://andlogreg.substack.com
+  RSS: https://andlogreg.work/index.xml
   FOOTER: Andlogreg © 2025
