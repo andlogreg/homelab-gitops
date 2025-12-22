@@ -1,5 +1,10 @@
-# NOTE: Once managing multiple clusters, rules should specified
-# per path. So that different keys are used for different clusters.
 creation_rules:
-  - encrypted_regex: '^(data|stringData)$'
+  # Rule for Production (matches phoenix_production OR any production folder in infra/monitoring)
+  - path_regex: (clusters/phoenix_production|infrastructure/controllers/production|monitoring/controllers/production)/.*\.yaml
+    encrypted_regex: '^(data|stringData)$'
     age: age1xcvacn074h50msqhvjtdytnm6fxkez3f4546lmvqh529qt2svycqs8j2nj
+
+  # Rule for Staging equivalents
+  - path_regex: (clusters/phoenix_staging|infrastructure/controllers/staging|monitoring/controllers/staging)/.*\.yaml
+    encrypted_regex: '^(data|stringData)$'
+    age: age1enrj3lv5fmmaqglm95ex6n7wztjac6kg7fe7rv08d26ejzt2v3nswupj5q # pragma: allowlist secret
