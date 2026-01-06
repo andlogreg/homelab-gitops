@@ -1,0 +1,29 @@
+#!/bin/bash
+set -e
+
+# Check for required environment variables
+required_vars=("GITHUB_USER" "REPO_NAME" "GITHUB_TOKEN")
+missing_vars=()
+
+for var in "${required_vars[@]}"; do
+  if [ -z "${!var}" ]; then
+    missing_vars+=("$var")
+  fi
+done
+
+if [ ${#missing_vars[@]} -ne 0 ]; then
+  echo "Error: The following required environment variables are not set:"
+  for var in "${missing_vars[@]}"; do
+    echo "  - $var"
+  done
+  echo "Please set these variables before running this script."
+  exit 1
+fi
+
+flux bootstrap github \
+  --token-auth \
+  --owner=$GITHUB_USER \
+  --repository=$REPO_NAME \
+  --branch=main \
+  --path=./clusters/dev-local \
+  --personal

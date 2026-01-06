@@ -1,9 +1,15 @@
 [tools]
 pre-commit = "latest"
 flux2 = "latest"
+k3d = "latest"
+k9s = "latest"
 
 [settings]
 experimental = true
 
 [hooks]
 enter = "bash ./scripts/setup_project"
+
+[tasks.k8s-local-setup]
+description = "Set up a local k8s cluster for quickly testing WIP changes"
+run = "bash ./scripts/setup_cluster_local"

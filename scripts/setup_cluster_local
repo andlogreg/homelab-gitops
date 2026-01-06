@@ -1,0 +1,59 @@
+#!/bin/bash
+set -e
+
+# Script directory
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+BASE_DIR="$(dirname "$SCRIPT_DIR")"
+CLUSTER_NAME="local-test-cluster"
+
+echo "##### K8s cluster setup helper #####"
+echo "Script to setup a local k3d cluster with gitops enabled."
+echo ""
+
+check_dependency() {
+  if ! command -v "$1" &>/dev/null; then
+    echo "Error: $1 is not installed. Please install it before proceeding."
+    exit 1
+  fi
+}
+
+echo "Checking dependencies..."
+check_dependency k3d
+check_dependency kubectl
+check_dependency docker
+check_dependency flux
+echo "All dependencies are installed."
+echo ""
+
+# Check if cluster exists
+if k3d cluster list | grep -q "$CLUSTER_NAME"; then
+  echo "Cluster $CLUSTER_NAME already exists."
+  read -p "Delete and recreate cluster? (y/n): " -r
+  if [[ $REPLY =~ ^[Yy]$ ]]; then
+    echo "Deleting existing cluster..."
+    k3d cluster delete "$CLUSTER_NAME"
+  else
+    echo "Using existing cluster."
+  fi
+fi
+
+# Create cluster if it doesn't exist
+if ! k3d cluster list | grep -q "$CLUSTER_NAME"; then
+  echo "Creating k3d cluster using config file..."
+  k3d cluster create --config "$SCRIPT_DIR/k3d-config.yaml"
+  echo "Cluster created successfully!"
+fi
+
+# Configure kubectl to use the cluster
+echo "Configuring kubectl to use the cluster..."
+kubectl config use-context k3d-"$CLUSTER_NAME"
+
+# Setup GitOps with Flux
+echo "Setting up GitOps with Flux..."
+"$SCRIPT_DIR/setup_gitops"
+echo "GitOps setup completed!"
+
+# Wait for Flux to be ready
+echo "Waiting for Flux controllers to be ready..."
+kubectl -n flux-system wait --for=condition=Ready pods --all --timeout=120s
+echo "Flux is ready! All apps should sync soon."
