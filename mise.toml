@@ -1,3 +1,9 @@
 [tools]
 pre-commit = "latest"
 flux2 = "latest"
+
+[settings]
+experimental = true
+
+[hooks]
+enter = "bash ./scripts/setup_project"

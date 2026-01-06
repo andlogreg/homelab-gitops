@@ -1,0 +1,10 @@
+#!/bin/bash
+
+if ! command -v cz >/dev/null && [ "$DEVPOD" = "true" ]; then
+  echo "Installing commitizen and pre-commit hooks..."
+  pip install --user pipx
+  pipx install commitizen
+  pre-commit install
+  pre-commit install --hook-type commit-msg
+  echo "Commitizen and pre-commit hooks installed successfully."
+fi
