@@ -8,7 +8,7 @@ Secrets are encrypted using:
 - **SOPS (Mozilla)**
 - **age encryption**
 
-Only encrypted Kubernetes manifests are committed to Git.  
+Only encrypted Kubernetes manifests are committed to Git.
 Decryption happens at deploy time inside the cluster via Flux.
 
 Plaintext secrets never leave the local machine.
