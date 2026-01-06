@@ -31,8 +31,11 @@ Plaintext secrets never leave the local machine.
 
 ### Pre-commit
 
-Pre-commit hooks are used locally to prevent accidental
-plaintext secret commits.
+Pre-commit hooks are used locally to:
+
+-  prevent accidental plaintext secret commits.
+-  enforce git commit message style.
+-  format yaml files.
 
 ### Key Rotation
 
