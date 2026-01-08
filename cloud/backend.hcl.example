@@ -1,0 +1,9 @@
+# Use this file for extra backend configuration
+# Usage: terraform init -backend-config=backend.hcl
+
+storage_account_name = "sttfstate123xyz" # Replace with your unique state storage account name
+resource_group_name = "rg-123xyw"
+container_name = "123xyw"
+
+# Alternatively, no need to use a file and simply pass the storage account name as an argument:
+# `terraform init -backend-config="storage_account_name=sttfstate123xyz" -backend-config="resource_group_name=rg-123xyw" -backend-config="container_name=123xyw"`

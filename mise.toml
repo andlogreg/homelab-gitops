@@ -3,6 +3,7 @@ pre-commit = "latest"
 flux2 = "latest"
 k3d = "latest"
 k9s = "latest"
+terraform = "latest"
 
 [settings]
 experimental = true
