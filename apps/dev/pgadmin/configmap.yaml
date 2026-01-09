@@ -14,15 +14,6 @@ data:
           "MaintenanceDB": "mealie",
           "Username": "mealie",
           "SSLMode": "prefer"
-        },
-        "2": {
-          "Name": "Mealie DB 2",
-          "Group": "Servers",
-          "Host": "mealie-db-rw.mealie",
-          "Port": 5432,
-          "MaintenanceDB": "mealie",
-          "Username": "mealie",
-          "SSLMode": "prefer"
         }
       }
     }
