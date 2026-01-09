@@ -22,6 +22,8 @@ provider "azuread" {}
 
 data "azuread_client_config" "current" {}
 
+##### Keyvault #####
+
 module "keyvault" {
   source = "../../_modules/keyvault"
 
@@ -39,6 +41,8 @@ module "keyvault" {
 
   tags = var.tags
 }
+
+##### Keyvault Service Principal #####
 
 output "keyvault_id" {
   value = module.keyvault.id
