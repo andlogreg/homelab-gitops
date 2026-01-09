@@ -35,5 +35,5 @@ spec:
           persistentVolumeClaim:
             claimName: pgadmin-data
         - name: servers-conf
-          configMap:
-            name: pgadmin-servers
+          secret:
+            secretName: pgadmin-servers # pragma: allowlist secret
