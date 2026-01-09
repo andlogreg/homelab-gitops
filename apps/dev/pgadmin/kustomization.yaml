@@ -2,5 +2,5 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 namespace: pgadmin
 resources:
-#   - ../../base/pgadmin
-#   - external_secret.yaml
+  - ../../base/pgadmin
+  - external_secret.yaml
