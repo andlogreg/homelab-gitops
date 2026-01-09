@@ -4,11 +4,6 @@ resource "time_rotating" "secret_rotation" {
 }
 
 #### Mealie Secrets ####
-resource "random_string" "mealie_db_credentials_user" {
-  length  = 10
-  special = false
-}
-
 resource "random_password" "mealie_db_credentials_password" {
   length  = 20
   special = true
@@ -19,7 +14,7 @@ resource "random_password" "mealie_db_credentials_password" {
 
 resource "azurerm_key_vault_secret" "mealie_db_credentials_user" {
   name         = "mealie-db-credentials-user"
-  value        = random_string.mealie_db_credentials_user.result
+  value        = "mealie"
   key_vault_id = module.keyvault.id
 }
 

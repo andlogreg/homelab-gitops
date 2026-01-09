@@ -4,4 +4,3 @@ namespace: mealie
 resources:
   - ../../base/mealie
   - external_secret.yaml
-  - secret.yaml
