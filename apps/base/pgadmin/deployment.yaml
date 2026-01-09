@@ -24,6 +24,8 @@ spec:
               value: "admin"
             - name: PGADMIN_LISTEN_PORT
               value: "80"
+            - name: PGADMIN_REPLACE_SERVERS_ON_STARTUP
+              value: "true"
           volumeMounts:
             - name: pgadmin-data
               mountPath: /var/lib/pgadmin
