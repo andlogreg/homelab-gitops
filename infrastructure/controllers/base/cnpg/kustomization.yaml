@@ -4,3 +4,4 @@ resources:
   - namespace.yaml
   - repository.yaml
   - release.yaml
+  - release_barman_cloud_plugin.yaml
