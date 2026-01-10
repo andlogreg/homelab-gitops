@@ -6,4 +6,5 @@ resources:
   - objectstore.yaml
   - persistent-volume-claim.yaml
   - postgresql.yaml
+  - scheduled-backup.yaml
   - service.yaml
