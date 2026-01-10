@@ -19,6 +19,11 @@ variable "storage_account_name" {
   type        = string
 }
 
+variable "keyvault_name" {
+  description = "Name of the Key Vault to store secrets in."
+  type        = string
+}
+
 module "storage" {
   source = "../../_modules/storage_account"
 
@@ -40,4 +45,22 @@ output "storage_account_id" {
 
 output "blob_endpoint" {
   value = module.storage.primary_blob_endpoint
+}
+
+# Store secrets in Key Vault for Kubernetes to consume
+data "azurerm_key_vault" "kv" {
+  name                = var.keyvault_name
+  resource_group_name = "rg-homelab-dev"
+}
+
+resource "azurerm_key_vault_secret" "storage_account_name" {
+  name         = "azure-main-storage-account-name"
+  value        = module.storage.name
+  key_vault_id = data.azurerm_key_vault.kv.id
+}
+
+resource "azurerm_key_vault_secret" "storage_account_key" {
+  name         = "azure-main-storage-account-key"
+  value        = module.storage.primary_access_key
+  key_vault_id = data.azurerm_key_vault.kv.id
 }
