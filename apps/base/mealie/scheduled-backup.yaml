@@ -6,7 +6,7 @@ spec:
   schedule: "0 0 3 * * *"  # At 3am every day
   backupOwnerReference: self
   cluster:
-    name: mealie-db
+    name: mealie-db-02
   immediate: true
   method: plugin
   pluginConfiguration:
