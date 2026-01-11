@@ -14,25 +14,25 @@ spec:
 
   # bootstrap:
   #   recovery:
-  #     database: app
-  #     owner: app
-  #     source: source
+  #     database: mealie
+  #     owner: mealie
+  #     source: barman-cluster
   #     secret:
-  #       name: customer1-db-credentials
+  #       name: mealie-db-credentials
 
   # externalClusters:
-  #   - name: source
+  #   - name: barman-cluster
   #     plugin:
   #       name: barman-cloud.cloudnative-pg.io
   #       parameters:
-  #         barmanObjectName: customer1-objectstore
-  #         serverName: customer1-db
+  #         barmanObjectName: mealie-db-objectstore
+  #         serverName: mealie-db # TODO: confirm this is correct
 
   storage:
-    size: 1Gi
+    size: 1Gi # TODO: confirm this size
 
-  plugins:
-    - name: barman-cloud.cloudnative-pg.io
-      isWALArchiver: true
-      parameters:
-        barmanObjectName: mealie-db-objectstore
+  # plugins:
+  #   - name: barman-cloud.cloudnative-pg.io
+  #     isWALArchiver: true
+  #     parameters:
+  #       barmanObjectName: mealie-db-objectstore
