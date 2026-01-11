@@ -21,7 +21,7 @@ spec:
             - name: DB_ENGINE
               value: "postgres"
             - name: POSTGRES_SERVER
-              value: "mealie-db-02-rw"
+              value: "mealie-db-00-rw"
             - name: POSTGRES_PORT
               value: "5432"
             - name: POSTGRES_DB

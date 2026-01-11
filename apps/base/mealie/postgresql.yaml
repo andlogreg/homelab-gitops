@@ -1,35 +1,35 @@
 apiVersion: postgresql.cnpg.io/v1
 kind: Cluster
 metadata:
-  name: mealie-db-02
+  name: mealie-db-00
 spec:
   instances: 3
 
-  # bootstrap:
-  #   initdb:
-  #     database: mealie
-  #     owner: mealie
-  #     secret:
-  #       name: mealie-db-credentials
-
   bootstrap:
-    recovery:
-      source: mealie-db-backup
+    initdb:
       database: mealie
       owner: mealie
       secret:
         name: mealie-db-credentials
 
-  externalClusters:
-    - name: mealie-db-backup
-      plugin:
-        name: barman-cloud.cloudnative-pg.io
-        parameters:
-          barmanObjectName: mealie-db-objectstore
-          serverName: mealie-db
+  # bootstrap:
+  #   recovery:
+  #     source: mealie-db-backup
+  #     database: mealie
+  #     owner: mealie
+  #     secret:
+  #       name: mealie-db-credentials
+
+  # externalClusters:
+  #   - name: mealie-db-backup
+  #     plugin:
+  #       name: barman-cloud.cloudnative-pg.io
+  #       parameters:
+  #         barmanObjectName: mealie-db-objectstore
+  #         serverName: mealie-db-00
 
   storage:
-    size: 1Gi # TODO: confirm this size
+    size: 1Gi
 
   plugins:
     - name: barman-cloud.cloudnative-pg.io
