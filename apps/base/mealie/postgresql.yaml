@@ -8,9 +8,6 @@ spec:
   bootstrap:
     initdb:
       database: mealie
-      owner: mealie
-      secret:
-        name: mealie-db-credentials
 
   # bootstrap:
   #   recovery:
@@ -31,8 +28,8 @@ spec:
   storage:
     size: 1Gi
 
-  plugins:
-    - name: barman-cloud.cloudnative-pg.io
-      isWALArchiver: true
-      parameters:
-        barmanObjectName: mealie-db-objectstore
+  # plugins:
+  #   - name: barman-cloud.cloudnative-pg.io
+  #     isWALArchiver: true
+  #     parameters:
+  #       barmanObjectName: mealie-db-objectstore
