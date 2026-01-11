@@ -20,19 +20,30 @@ spec:
           env:
             - name: DB_ENGINE
               value: "postgres"
-            - name: POSTGRES_SERVER
-              value: "mealie-db-00-rw"
-            - name: POSTGRES_PORT
-              value: "5432"
-            - name: POSTGRES_DB
-              value: "mealie"
-            - name: POSTGRES_USER
-              value: "mealie"
-            - name: POSTGRES_PASSWORD
+            # - name: POSTGRES_SERVER
+            #   valueFrom:
+            #     secretKeyRef:
+            #       name: mealie-db-00-app
+            #       key: host
+            # - name: POSTGRES_PORT
+            #   valueFrom:
+            #     secretKeyRef:
+            #       name: mealie-db-00-app
+            #       key: port
+            # - name: POSTGRES_DB
+            #   value: "mealie"
+            # - name: POSTGRES_USER
+            #   value: "mealie"
+            # - name: POSTGRES_PASSWORD
+            #   valueFrom:
+            #     secretKeyRef:
+            #       name: mealie-db-credentials
+            #       key: password
+            - name: POSTGRES_URL_OVERRIDE
               valueFrom:
                 secretKeyRef:
-                  name: mealie-db-credentials
-                  key: password
+                  name: mealie-db-00-app
+                  key: uri
             - name: ALLOW_SIGNUP
               value: "false"
             - name: PU_ID
