@@ -5,34 +5,34 @@ metadata:
 spec:
   instances: 3
 
+  # bootstrap:
+  #   initdb:
+  #     database: mealie
+  #     owner: mealie
+  #     secret:
+  #       name: mealie-db-credentials
+
   bootstrap:
-    initdb:
+    recovery:
+      source: mealie-db-backup
       database: mealie
       owner: mealie
       secret:
         name: mealie-db-credentials
 
-  # bootstrap:
-  #   recovery:
-  #     database: mealie
-  #     owner: mealie
-  #     source: barman-cluster
-  #     secret:
-  #       name: mealie-db-credentials
-
-  # externalClusters:
-  #   - name: barman-cluster
-  #     plugin:
-  #       name: barman-cloud.cloudnative-pg.io
-  #       parameters:
-  #         barmanObjectName: mealie-db-objectstore
-  #         serverName: mealie-db # TODO: confirm this is correct
+  externalClusters:
+    - name: mealie-db-backup
+      plugin:
+        name: barman-cloud.cloudnative-pg.io
+        parameters:
+          barmanObjectName: mealie-db-objectstore
+          serverName: mealie-db
 
   storage:
     size: 1Gi # TODO: confirm this size
 
-  # plugins:
-  #   - name: barman-cloud.cloudnative-pg.io
-  #     isWALArchiver: true
-  #     parameters:
-  #       barmanObjectName: mealie-db-objectstore
+  plugins:
+    - name: barman-cloud.cloudnative-pg.io
+      isWALArchiver: true
+      parameters:
+        barmanObjectName: mealie-db-objectstore
