@@ -4,8 +4,8 @@ resources:
   - deployment.yaml
   - external_secret.yaml
   - namespace.yaml
-  # - objectstore.yaml
+  - objectstore.yaml
   - persistent-volume-claim.yaml
   - postgresql.yaml
-  # - scheduled-backup.yaml
+  - scheduled-backup.yaml
   - service.yaml

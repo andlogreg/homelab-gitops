@@ -13,9 +13,6 @@ spec:
   #   recovery:
   #     source: mealie-db-backup
   #     database: mealie
-  #     owner: mealie
-  #     secret:
-  #       name: mealie-db-credentials
 
   # externalClusters:
   #   - name: mealie-db-backup
