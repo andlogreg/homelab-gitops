@@ -10,7 +10,7 @@ terraform {
     }
   }
   backend "azurerm" {
-    key = "homelab/cloud/dev/keyvault/terraform.tfstate"
+    key = "homelab/cloud/staging/keyvault/terraform.tfstate"
   }
 }
 
@@ -28,7 +28,7 @@ module "keyvault" {
   source = "../../_modules/keyvault"
 
   keyvault_name       = var.keyvault_name
-  resource_group_name = "rg-homelab-dev"
+  resource_group_name = "rg-homelab-staging"
   location            = var.location
   sku_name            = "standard"
 
@@ -53,7 +53,7 @@ output "keyvault_uri" {
 ##### Keyvault Service Principal #####
 
 resource "azuread_application" "eso" {
-  display_name = "sp-homelab-dev-eso"
+  display_name = "sp-homelab-staging-eso"
   owners       = [data.azuread_client_config.current.object_id]
 }
 

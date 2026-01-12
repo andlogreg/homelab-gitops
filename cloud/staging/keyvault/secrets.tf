@@ -1,6 +1,5 @@
 resource "time_rotating" "secret_rotation" {
-  # NOTE: 5 minutes only for testing purposes
-  rotation_minutes = 5
+  rotation_days = 60
 }
 
 #### Mealie Secrets ####
