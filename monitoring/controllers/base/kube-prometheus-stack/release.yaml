@@ -33,8 +33,10 @@ spec:
         ingressClassName: traefik
         hosts:
           - grafana.andlogreg.work
-      prometheus:
-        prometheusSpec:
-          # Prometheus find all ServiceMonitors regardless of labels
-          serviceMonitorSelectorNilUsesHelmValues: false
-          serviceMonitorSelector: {}
+    prometheus:
+      prometheusSpec:
+        # Prometheus find all ServiceMonitors regardless of labels
+        serviceMonitorSelectorNilUsesHelmValues: false
+        serviceMonitorSelector: {}
+        # Prometheus find ServiceMonitors in all namespaces
+        serviceMonitorNamespaceSelector: {}
