@@ -12,12 +12,12 @@ spec:
         kind: HelmRepository
         name: gpu-operator
       interval: 12h
-      values:
-        toolkit:
-          env:
-            - name: CONTAINERD_SOCKET
-              value: /run/k3s/containerd/containerd.sock
-      #   devicePlugin:
-      #     config:
-      #       name: time-slicing-config
-      #       default: any
+  values:
+    toolkit:
+      env:
+        - name: CONTAINERD_SOCKET
+          value: /run/k3s/containerd/containerd.sock
+  #   devicePlugin:
+  #     config:
+  #       name: time-slicing-config
+  #       default: any
