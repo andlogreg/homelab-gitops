@@ -17,6 +17,11 @@ spec:
       env:
         - name: CONTAINERD_SOCKET
           value: /run/k3s/containerd/containerd.sock
+    dcgmExporter:
+      serviceMonitor:
+        enabled: true
+        interval: 15s
+        honorLabels: true
   #   devicePlugin:
   #     config:
   #       name: time-slicing-config
