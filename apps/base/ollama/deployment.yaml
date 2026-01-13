@@ -17,6 +17,7 @@ spec:
           image: ollama/ollama:0.13.5
           ports:
             - containerPort: 11434
+              name: http
           resources:
             limits:
               nvidia.com/gpu: 1
