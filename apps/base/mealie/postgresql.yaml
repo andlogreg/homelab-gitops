@@ -3,7 +3,7 @@ kind: Cluster
 metadata:
   name: mealie-db-00
 spec:
-  instances: 3
+  instances: 1
 
   bootstrap:
     initdb:
