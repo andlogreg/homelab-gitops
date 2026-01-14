@@ -17,22 +17,15 @@ spec:
           image: ghcr.io/mealie-recipes/mealie:v3.9.1
           ports:
             - containerPort: 9000
+          envFrom:
+            - configMapRef:
+                name: mealie-config
           env:
-            - name: DB_ENGINE
-              value: "postgres"
             - name: POSTGRES_URL_OVERRIDE
               valueFrom:
                 secretKeyRef:
                   name: mealie-db-00-app
                   key: uri
-            - name: ALLOW_SIGNUP
-              value: "false"
-            - name: PU_ID
-              value: "1000"
-            - name: PG_ID
-              value: "1000"
-            - name: TZ
-              value: "Europe/London"
           volumeMounts:
             - name: mealie-data
               mountPath: /app/data/

@@ -9,3 +9,12 @@ resources:
   - postgresql.yaml
   - scheduled-backup.yaml
   - service.yaml
+
+configMapGenerator:
+  - name: mealie-config
+    literals:
+      - ALLOW_SIGNUP=false
+      - PU_ID=1000
+      - PG_ID=1000
+      - TZ=Europe/London
+      - DB_ENGINE=postgres

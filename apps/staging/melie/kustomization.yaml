@@ -4,3 +4,12 @@ namespace: mealie
 resources:
   - ../../base/mealie
   - ingress.yaml
+
+configMapGenerator:
+  - name: mealie-config
+    behavior: merge
+    literals:
+      - OPENAI_BASE_URL=http://ollama-helios.andlogreg.work/v1
+      - OPENAI_API_KEY=ollama
+      - OPENAI_MODEL=gemma3:12b
+      - OPENAI_ENABLE_IMAGE_SERVICES=True
