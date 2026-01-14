@@ -3,13 +3,23 @@ kind: Kustomization
 namespace: mealie
 resources:
   - ../../base/mealie
+  - external-secret-openai.yaml
   - ingress.yaml
 
 configMapGenerator:
   - name: mealie-config
     behavior: merge
     literals:
-      - OPENAI_BASE_URL=http://ollama-helios.andlogreg.work/v1
-      - OPENAI_API_KEY=ollama
-      - OPENAI_MODEL=gemma3:12b
+      # - OPENAI_MODEL=gemma3:12b
       - OPENAI_ENABLE_IMAGE_SERVICES=True
+
+patches:
+  - target:
+      kind: Deployment
+      name: mealie
+    patch: |- # pragma: allowlist secret
+      - op: add
+        path: /spec/template/spec/containers/0/envFrom/-
+        value:
+          secretRef:
+            name: mealie-openai-secret
