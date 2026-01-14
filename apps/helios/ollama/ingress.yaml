@@ -1,0 +1,19 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  labels:
+    app: ollama
+  name: ollama
+spec:
+  ingressClassName: traefik
+  rules:
+  - host: ollama-helios.andlogreg.work
+    http:
+      paths:
+      - backend:
+          service:
+            name: ollama
+            port:
+              number: 11434
+        path: /
+        pathType: Prefix
