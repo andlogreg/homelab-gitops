@@ -1,0 +1,42 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vllm
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: vllm
+  template:
+    metadata:
+      labels:
+        app: vllm
+    spec:
+      containers:
+      - name: vllm
+        image: vllm/vllm-openai:v0.13.0
+        command: ["/bin/sh", "-c"]
+        args: [
+          "vllm serve $(MODEL_NAME) $(VLLM_ARGS)"
+        ]
+        ports:
+        - containerPort: 8000
+        volumeMounts:
+        - mountPath: /root/.cache/huggingface
+          name: cache-volume
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 60
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 60
+          periodSeconds: 5
+      volumes:
+      - name: cache-volume
+        persistentVolumeClaim:
+          claimName: vllm-data

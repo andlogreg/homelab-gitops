@@ -1,0 +1,26 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vllm
+spec:
+  template:
+    spec:
+      containers:
+      - name: vllm
+        resources:
+          limits:
+            nvidia.com/gpu: "1"
+            cpu: "10"
+            memory: 20G
+          requests:
+            nvidia.com/gpu: "1"
+            cpu: "2"
+            memory: 6G
+        volumeMounts:
+        - name: shm
+          mountPath: /dev/shm
+      volumes:
+      - name: shm
+        emptyDir:
+          medium: Memory
+          sizeLimit: "2Gi"
