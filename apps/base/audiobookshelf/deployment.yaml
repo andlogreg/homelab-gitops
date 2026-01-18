@@ -37,8 +37,8 @@ spec:
           persistentVolumeClaim:
             claimName: audiobookshelf-podcasts
         - name: audiobookshelf-config
-          configMap:
-            name: audiobookshelf-config
+          persistentVolumeClaim:
+            claimName: audiobookshelf-config
         - name: audiobookshelf-metadata
           persistentVolumeClaim:
             claimName: audiobookshelf-metadata
