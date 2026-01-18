@@ -7,5 +7,6 @@ resources:
 
 configMapGenerator:
   - name: open-webui-config
+    behavior: merge
     literals:
       - OPENAI_API_BASE_URL=http://vllm.vllm.svc.cluster.local:8000
