@@ -3,7 +3,6 @@ kind: Kustomization
 namespace: open-webui
 resources:
   - ../../base/open-webui
-  - external-name.yaml
   - ingress.yaml
 
 
@@ -11,5 +10,5 @@ configMapGenerator:
   - name: open-webui-config
     behavior: merge
     literals:
-      - OPENAI_API_BASE_URL=http://vllm-inference/v1
+      - OPENAI_API_BASE_URL=http://vllm-inference-helios.andlogreg.work/v1
       - OPENAI_API_KEY=Gjui9F5S2H # pragma: allowlist secret
