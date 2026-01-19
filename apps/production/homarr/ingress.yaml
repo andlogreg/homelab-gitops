@@ -1,0 +1,19 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  labels:
+    app: homarr
+  name: homarr
+spec:
+  ingressClassName: traefik
+  rules:
+  - host: homarr.andlogreg.work
+    http:
+      paths:
+      - backend:
+          service:
+            name: homarr
+            port:
+              number: 7575
+        path: /
+        pathType: Prefix
