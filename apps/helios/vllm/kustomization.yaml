@@ -12,7 +12,7 @@ configMapGenerator:
       - IGNORE_ME2=meta-llama/Meta-Llama-3-8B-Instruct
       - IGNORE_ME=Mistral-7B-Instruct-v0.3
       - MODEL_NAME=meta-llama/Llama-3.1-8B-Instruct
-      - VLLM_ARGS="--gpu-memory-utilization 0.90 --port 8000 --trust-remote-code --enable-chunked-prefill --max_num_batched_tokens 1024 --max-model-len 32768  --api-key O3wu^TV$D"
+      - VLLM_ARGS="--gpu-memory-utilization 0.90 --port 8000 --trust-remote-code --enable-chunked-prefill --max_num_batched_tokens 1024 --max-model-len 32768  --api-key Gjui9F5S2H"
       - VLLM_LOGGING_LEVEL=DEBUG
 
 patches:
