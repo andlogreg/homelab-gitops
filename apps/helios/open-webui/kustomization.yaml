@@ -10,3 +10,4 @@ configMapGenerator:
     behavior: merge
     literals:
       - OPENAI_API_BASE_URL=http://vllm-inference.vllm.svc.cluster.local:8000/v1
+      - OPENAI_API_KEY=O3wu^TV$D # pragma: allowlist secret

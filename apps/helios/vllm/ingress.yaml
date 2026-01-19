@@ -1,0 +1,19 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  labels:
+    app: vllm
+  name: vllm
+spec:
+  ingressClassName: traefik
+  rules:
+  - host: vllm-inference.andlogreg.work
+    http:
+      paths:
+      - backend:
+          service:
+            name: vllm-inference
+            port:
+              number: 8000
+        path: /
+        pathType: Prefix
