@@ -3,3 +3,4 @@ kind: Kustomization
 namespace: homarr
 resources:
   - ../../base/homarr
+  - ingress.yaml
