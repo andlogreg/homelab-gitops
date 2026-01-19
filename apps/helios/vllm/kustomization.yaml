@@ -8,9 +8,9 @@ resources:
 configMapGenerator:
   - name: vllm-config
     literals:
-      - MODEL_NAME=meta-llama/Meta-Llama-3-8B-Instruct
+      - IGNORE_ME2=meta-llama/Meta-Llama-3-8B-Instruct
       - IGNORE_ME=Mistral-7B-Instruct-v0.3
-      - IGNORE_ME2=meta-llama/Llama-3.1-8B-Instruct
+      - MODEL_NAME=meta-llama/Llama-3.1-8B-Instruct
       - VLLM_ARGS="--gpu-memory-utilization 0.90 --port 8000 --trust-remote-code --enable-chunked-prefill --max_num_batched_tokens 1024"
       - VLLM_LOGGING_LEVEL=DEBUG
 
