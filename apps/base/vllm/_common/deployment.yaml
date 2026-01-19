@@ -19,6 +19,12 @@ spec:
         args: [
           "vllm serve $(MODEL_NAME) $(VLLM_ARGS)"
         ]
+        env:
+        - name: HF_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: hf-token
+              key: token
         ports:
         - containerPort: 8000
         volumeMounts:
