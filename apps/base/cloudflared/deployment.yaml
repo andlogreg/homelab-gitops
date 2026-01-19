@@ -38,13 +38,13 @@ spec:
       volumes:
       - name: config
         secret:
-          secretName: cloudflared-config # pragma: allowlist secret
+          secretName: cloudflared-tunnel-config # pragma: allowlist secret
           items:
             - key: config.yaml
               path: config.yaml
       - name: creds
         secret:
-          secretName: cloudflared-config # pragma: allowlist secret
+          secretName: cloudflared-tunnel-config # pragma: allowlist secret
           items:
             - key: credentials.json
               path: credentials.json
