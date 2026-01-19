@@ -10,5 +10,6 @@ resources:
 configMapGenerator:
   - name: homarr-config
     literals:
+      - LOG_LEVEL=info
       - PUID=1000
       - PGID=1000
