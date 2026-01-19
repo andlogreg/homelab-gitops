@@ -14,6 +14,9 @@ spec:
     spec:
       securityContext:
         fsGroup: 1000
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
       containers:
         - name: audiobookshelf
           securityContext:
@@ -21,9 +24,6 @@ spec:
             capabilities:
               drop:
                 - ALL
-            runAsNonRoot: true
-            runAsUser: 1000
-            runAsGroup: 1000
           image: ghcr.io/advplyr/audiobookshelf:2.32.0
           ports:
             - containerPort: 3005
