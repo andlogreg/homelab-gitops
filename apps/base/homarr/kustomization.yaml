@@ -1,0 +1,14 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - deployment.yaml
+  - namespace.yaml
+  - external-secret.yaml
+  - persistent-volume-claim.yaml
+  - service.yaml
+
+configMapGenerator:
+  - name: homarr-config
+    literals:
+      - PUID=1000
+      - PGID=1000
