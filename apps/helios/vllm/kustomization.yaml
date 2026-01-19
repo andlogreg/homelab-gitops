@@ -3,6 +3,7 @@ kind: Kustomization
 namespace: vllm
 resources:
   - ../../base/vllm/gpu
+  - external-secret.yaml
 
 configMapGenerator:
   - name: vllm-config
