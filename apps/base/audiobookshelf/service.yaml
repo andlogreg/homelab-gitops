@@ -7,5 +7,5 @@ spec:
     app: audiobookshelf
   ports:
     - protocol: TCP
-      port: 80
+      port: 3005
   type: ClusterIP

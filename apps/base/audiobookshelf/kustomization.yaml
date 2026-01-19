@@ -10,3 +10,4 @@ configMapGenerator:
   - name: audiobookshelf-config
     literals:
       - TZ=Europe/London
+      - PORT=3005
