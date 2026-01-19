@@ -3,6 +3,7 @@ kind: Kustomization
 namespace: open-webui
 resources:
   - ../../base/open-webui
+  - ingress.yaml
 
 configMapGenerator:
   - name: open-webui-config
