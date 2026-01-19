@@ -4,7 +4,6 @@ namespace: mealie
 resources:
   - ../../base/mealie
   - external-secret-openai.yaml
-  - ingress.yaml
 
 configMapGenerator:
   - name: mealie-config
