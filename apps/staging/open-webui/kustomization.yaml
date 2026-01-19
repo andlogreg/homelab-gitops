@@ -3,6 +3,7 @@ kind: Kustomization
 namespace: open-webui
 resources:
   - ../../base/open-webui
+  - external-name.yaml
   - ingress.yaml
 
 
