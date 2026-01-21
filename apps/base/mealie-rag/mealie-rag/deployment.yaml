@@ -1,0 +1,26 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mealie-rag
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mealie-rag
+  template:
+    metadata:
+      labels:
+        app: mealie-rag
+    spec:
+      containers:
+        - name: mealie-rag
+          image: ghcr.io/andlogreg/mealierag:mealierag-v0.1.0
+          command: ["qa-ui"]
+          envFrom:
+            - secretRef:
+                name: mealie-rag-config
+            - configMapRef:
+                name: mealie-rag-config
+          ports:
+            - containerPort: 7860
+              name: http

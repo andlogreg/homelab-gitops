@@ -1,0 +1,19 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  labels:
+    app: mealie-rag
+  name: mealie-rag
+spec:
+  ingressClassName: traefik
+  rules:
+  - host: mealie-rag-staging.andlogreg.work
+    http:
+      paths:
+      - backend:
+          service:
+            name: mealie-rag
+            port:
+              number: 7860
+        path: /
+        pathType: Prefix

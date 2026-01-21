@@ -1,0 +1,15 @@
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+    name: qdrant
+spec:
+  interval: 12h
+  targetNamespace: mealie-rag
+  chart:
+      spec:
+          chart: qdrant
+          version: '1.16.2'
+          sourceRef:
+              kind: HelmRepository
+              name: qdrant
+          interval: 12h
