@@ -21,4 +21,4 @@ patches:
                 resources:
                   limits:
                     nvidia.com/gpu: 0 # No GPU for staging
-                    cpu: "1"
+                    cpu: "2"
