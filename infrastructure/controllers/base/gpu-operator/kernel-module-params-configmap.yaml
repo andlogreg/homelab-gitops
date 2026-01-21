@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kernel-module-params
+data:
+  nvidia.conf: |
+    NVreg_EnableS0ixPowerManagement=1
+    NVreg_PreserveVideoMemoryAllocations=1
+    NVreg_EnableGpuFirmware=1
