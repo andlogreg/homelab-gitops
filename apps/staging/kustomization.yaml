@@ -3,6 +3,7 @@ kind: Kustomization
 resources:
   - littlelink
   - mealie
+  - mealie-rag
   - ollama
   - open-webui
   - pgadmin
