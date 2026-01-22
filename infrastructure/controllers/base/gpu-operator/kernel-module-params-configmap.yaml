@@ -4,6 +4,5 @@ metadata:
   name: kernel-module-params
 data:
   nvidia.conf: |
-    NVreg_PreserveVideoMemoryAllocations=1
     NVreg_EnableS0ixPowerManagement=1
     NVreg_EnableGpuFirmware=1
