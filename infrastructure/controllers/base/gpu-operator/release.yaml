@@ -22,10 +22,10 @@ spec:
         enabled: true
         interval: 15s
         honorLabels: true
-    driver:
-      # kernel module configuration for NVIDIA driver
-      kernelModuleConfig:
-        name: "kernel-module-params"
+    # driver:
+    #   # kernel module configuration for NVIDIA driver
+    #   kernelModuleConfig:
+    #     name: "kernel-module-params"
   #   devicePlugin:
   #     config:
   #       name: time-slicing-config
