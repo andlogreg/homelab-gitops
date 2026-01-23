@@ -4,7 +4,7 @@ metadata:
   name: loki
 spec:
   dependsOn:
-    - kube-prometheus-stack
+    - name: kube-prometheus-stack
   interval: 12h
   chart:
     spec:
