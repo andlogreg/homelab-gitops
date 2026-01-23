@@ -59,10 +59,10 @@ spec:
       enabled: true
       alloy:
         mounts:
-          varlog: false
+          varlog: true
           dockercontainers: false
         clustering:
-          enabled: true
+          enabled: false
 
     alloy-profiles:
       enabled: false
