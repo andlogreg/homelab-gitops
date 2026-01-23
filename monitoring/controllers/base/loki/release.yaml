@@ -59,6 +59,17 @@ spec:
         enabled: true
         size: 2Gi
 
+    # Disable canary: https://grafana.com/docs/loki/latest/operations/loki-canary/
+    lokiCanary:
+      enabled: false
+    # Disable caches
+    chunksCache:
+      enabled: false
+    resultsCache:
+      enabled: false
+    # Disable gateway
+    gateway:
+      enabled: false
 
     backend:
       replicas: 0
