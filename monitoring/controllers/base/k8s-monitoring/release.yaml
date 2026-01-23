@@ -1,0 +1,71 @@
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: alloy
+spec:
+  dependsOn:
+    - kube-prometheus-stack
+  interval: 12h
+  chart:
+    spec:
+      chart: k8s-monitoring
+      version: "3.7.2"
+      sourceRef:
+        kind: HelmRepository
+        name: grafana-charts
+      interval: 12h
+  install:
+    crds: Create
+    createNamespace: true
+  upgrade:
+    crds: CreateReplace
+  values:
+    cluster:
+      name: k8s-monitoring
+
+    destinations:
+      - name: loki
+        type: loki
+        url: http://loki.monitoring.svc.cluster.local:3100/loki/api/v1/push
+
+
+    clusterEvents:
+      enabled: true
+      collector: alloy-logs
+
+    nodeLogs:
+      enabled: false
+
+    podLogs:
+      enabled: true
+      gatherMethod: volumes
+      collector: alloy-logs
+      labelsToKeep: ["app_kubernetes_io_name","container","instance","job","level","namespace","service_name","service_namespace","deployment_environment","deployment_environment_name"]
+      structuredMetadata:
+        pod: pod  # Set structured metadata "pod" from label "pod"
+
+    # podLogsViaKubernetesApi:
+    #   enabled: true
+    #   collector: alloy-logs
+
+    # Collectors
+    alloy-singleton:
+      enabled: false
+
+    alloy-metrics:
+      enabled: false
+
+    alloy-logs:
+      enabled: true
+      alloy:
+        mounts:
+          varlog: false
+          dockercontainers: false
+        clustering:
+          enabled: true
+
+    alloy-profiles:
+      enabled: false
+
+    alloy-receiver:
+      enabled: false

@@ -33,6 +33,12 @@ spec:
         ingressClassName: traefik
         hosts:
           - grafana.andlogreg.work
+      additionalDataSources:
+        - name: Loki
+          type: loki
+          url: http://loki.monitoring.svc.cluster.local:3100
+          access: proxy
+          isDefault: false
     prometheus:
       prometheusSpec:
         # Prometheus find all ServiceMonitors regardless of labels
