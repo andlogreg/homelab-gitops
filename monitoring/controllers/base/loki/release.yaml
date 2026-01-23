@@ -62,6 +62,8 @@ spec:
     # Disable canary: https://grafana.com/docs/loki/latest/operations/loki-canary/
     lokiCanary:
       enabled: false
+    test:
+      enabled: false
     # Disable caches
     chunksCache:
       enabled: false
