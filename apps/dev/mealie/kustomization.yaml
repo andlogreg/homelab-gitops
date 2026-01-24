@@ -3,3 +3,10 @@ kind: Kustomization
 namespace: mealie
 resources:
   - ../../base/mealie
+
+patches:
+  - path: recovery.yaml
+    target:
+      kind: Cluster
+      name: mealie-db-00
+  - path: references_patch.yaml

@@ -1,0 +1,18 @@
+- op: replace
+  path: /metadata/name
+  value: mealie-db-01
+- op: replace
+  path: /spec/bootstrap
+  value:
+    recovery:
+      source: mealie-db-backup
+      database: mealie
+- op: add
+  path: /spec/externalClusters
+  value:
+    - name: mealie-db-backup
+      plugin:
+        name: barman-cloud.cloudnative-pg.io
+        parameters:
+          barmanObjectName: mealie-db-objectstore
+          serverName: mealie-db-00
