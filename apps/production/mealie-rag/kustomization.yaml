@@ -1,0 +1,19 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: mealie-rag
+resources:
+  - ../../base/mealie-rag
+  - ingress.yaml
+
+patches:
+  - path: external-secret.yaml
+
+configMapGenerator:
+  - name: mealie-rag-config
+    behavior: merge
+    literals:
+      - MEALIE_API_URL=http://mealie.mealie.svc.cluster.local:9000/api/recipes
+      - VECTORDB_URL=http://mealie-rag-qdrant:6333
+      - OLLAMA_BASE_URL=http://ollama-helios.andlogreg.work
+      - LLM_MODEL=llama3.1:8b
+      - VECTORDB_K=8
