@@ -13,4 +13,4 @@ configMapGenerator:
 
 images:
   - name: ghcr.io/andlogreg/mealierag
-    newTag: mealierag-v0.3.0
+    newTag: mealierag-v0.4.0
