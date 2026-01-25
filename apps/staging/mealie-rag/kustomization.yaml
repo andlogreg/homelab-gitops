@@ -3,6 +3,7 @@ kind: Kustomization
 namespace: mealie-rag
 resources:
   - ../../base/mealie-rag
+  - external-secret.yaml
   - ingress.yaml
 
 configMapGenerator:

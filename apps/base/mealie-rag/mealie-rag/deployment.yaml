@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
         - name: mealie-rag
-          image: ghcr.io/andlogreg/mealierag:mealierag-v0.1.0
+          image: ghcr.io/andlogreg/mealierag:mealierag-v0.2.0
           args: ["qa-ui"]
           envFrom:
             - secretRef:
