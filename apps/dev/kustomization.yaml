@@ -3,6 +3,7 @@ kind: Kustomization
 resources:
   - audiobookshelf
   - mealie
-  - ollama
+  - mealie-rag
+  # - ollama
   - open-webui
   - pgadmin
