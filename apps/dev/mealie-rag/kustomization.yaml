@@ -12,4 +12,4 @@ configMapGenerator:
       - MEALIE_EXTERNAL_URL=http://mealie-staging.andlogreg.work
       - QDRANT_URL=http://mealie-rag-qdrant:6333
       - OLLAMA_BASE_URL=http://host.docker.internal:11434
-      - LLM_MODEL=gemma3:12b
+      - LLM_MODEL=llama3.2:3b
