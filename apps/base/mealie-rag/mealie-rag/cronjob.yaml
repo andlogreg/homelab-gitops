@@ -1,0 +1,21 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: mealie-rag-ingest
+spec:
+  schedule: "0 2 * * *"
+  concurrencyPolicy: Forbid
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: Never
+          containers:
+            - name: mealie-rag
+              image: ghcr.io/andlogreg/mealierag
+              args: ["ingest"]
+              envFrom:
+                - secretRef:
+                    name: mealie-rag-config
+                - configMapRef:
+                    name: mealie-rag-config
