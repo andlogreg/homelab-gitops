@@ -10,7 +10,9 @@ configMapGenerator:
   - name: mealie-rag-config
     literals:
       - DELETE_COLLECTION_IF_EXISTS=true
+      - SEARCH_STRATEGY=multiquery
+      - LOG_LEVEL=debug
 
 images:
   - name: ghcr.io/andlogreg/mealierag
-    newTag: mealierag-v0.4.0
+    newTag: mealierag-v0.5.1

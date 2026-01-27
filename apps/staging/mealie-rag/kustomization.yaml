@@ -18,8 +18,3 @@ configMapGenerator:
       - OLLAMA_BASE_URL=http://ollama-helios.andlogreg.work
       - LLM_MODEL=llama3.1:8b
       - VECTORDB_K=8
-      - SEARCH_STRATEGY=multiquery
-
-images:
-  - name: ghcr.io/andlogreg/mealierag
-    newTag: mealierag-v0.5.0
