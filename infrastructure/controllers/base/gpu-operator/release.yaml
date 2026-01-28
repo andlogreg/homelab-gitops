@@ -26,7 +26,7 @@ spec:
       # kernel module configuration for NVIDIA driver
       kernelModuleConfig:
         name: "kernel-module-params"
-  #   devicePlugin:
-  #     config:
-  #       name: time-slicing-config
-  #       default: any
+    devicePlugin:
+      config:
+        name: time-slicing-config
+        default: any
