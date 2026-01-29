@@ -1,0 +1,6 @@
+general_settings:
+  proxy_batch_write_at: 60 # Batch write spend updates every 60s
+  database_connection_pool_limit: 10
+
+litellm_settings:
+  json_logs: true

@@ -1,0 +1,16 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - deployment.yaml
+  - external_secret.yaml
+  - namespace.yaml
+  - objectstore.yaml
+  - postgresql.yaml
+  - scheduled-backup.yaml
+  - service.yaml
+
+configMapGenerator:
+  - name: litellm-config
+    literals:
+      - USE_PRISMA_MIGRATE=True
+      - STORE_MODEL_IN_DB=True

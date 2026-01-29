@@ -1,0 +1,19 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  labels:
+    app: litellm
+  name: litellm
+spec:
+  ingressClassName: traefik
+  rules:
+  - host: litellm-staging.andlogreg.work
+    http:
+      paths:
+      - backend:
+          service:
+            name: litellm
+            port:
+              number: 4000
+        path: /
+        pathType: Prefix

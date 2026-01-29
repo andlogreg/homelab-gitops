@@ -1,0 +1,60 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: litellm
+  labels:
+    app: litellm
+spec:
+  selector:
+    matchLabels:
+      app: litellm
+  template:
+    metadata:
+      labels:
+        app: litellm
+    spec:
+      containers:
+      - name: litellm
+        image: docker.litellm.ai/berriai/litellm:v1.81.0-stable
+        args:
+          - "--config"
+          - "/app/proxy_server_config.yaml"
+        ports:
+        - containerPort: 4000
+        volumeMounts:
+        - name: config-volume
+          mountPath: /app/proxy_server_config.yaml
+          subPath: config.yaml
+        env:
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: litellm-db-00-app
+              key: uri
+        envFrom:
+          - configMapRef:
+              name: litellm-config
+          - secretRef:
+              name: litellm-secrets
+        livenessProbe:
+          httpGet:
+            path: /health/liveliness
+            port: 4000
+          initialDelaySeconds: 120
+          periodSeconds: 30
+          successThreshold: 1
+          failureThreshold: 3
+          timeoutSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health/readiness
+            port: 4000
+          initialDelaySeconds: 120
+          periodSeconds: 30
+          successThreshold: 1
+          failureThreshold: 3
+          timeoutSeconds: 10
+      volumes:
+        - name: config-volume
+          configMap:
+            name: litellm-config
