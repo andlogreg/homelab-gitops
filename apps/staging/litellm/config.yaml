@@ -4,3 +4,6 @@ general_settings:
 
 litellm_settings:
   json_logs: true
+
+router_settings:
+  enable_pre_call_checks: true
