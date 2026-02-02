@@ -11,3 +11,5 @@ configMapGenerator:
     behavior: merge
     files:
       - config.yaml
+    literals:
+      - LANGFUSE_TRACING_ENVIRONMENT=staging
