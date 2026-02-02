@@ -25,7 +25,8 @@ configMapGenerator:
       - OLLAMA_BASE_URL=http://ollama-helios.andlogreg.work
       - LLM_PROVIDER=openai
       - LLM_BASE_URL=http://litellm.litellm.svc.cluster.local:4000
-      - LLM_MODEL=mealie-rag-staging-llm
+      - LLM_MODEL=mealie-rag-llm-staging
+      - EMBEDDING_MODEL=mealie-rag-embedding-staging
       - TRACING_ENABLED=true
       - TRACING_ENVIRONMENT=staging
       - VECTORDB_K=8
