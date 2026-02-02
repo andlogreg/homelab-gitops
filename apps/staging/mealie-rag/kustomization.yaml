@@ -7,6 +7,13 @@ resources:
 
 patches:
   - path: external-secret.yaml
+  - target:
+      kind: Deployment
+      name: mealie-rag
+    patch: |
+      - op: add
+        path: /spec/template/spec/containers/0/imagePullPolicy
+        value: Always
 
 configMapGenerator:
   - name: mealie-rag-config
@@ -16,5 +23,13 @@ configMapGenerator:
       - MEALIE_EXTERNAL_URL=http://mealie-staging.andlogreg.work
       - VECTORDB_URL=http://mealie-rag-qdrant:6333
       - OLLAMA_BASE_URL=http://ollama-helios.andlogreg.work
-      - LLM_MODEL=llama3.1:8b
+      - LLM_PROVIDER=OPENAI
+      - LLM_BASE_URL=http://litellm.litellm.svc.cluster.local:4000
+      - LLM_MODEL=mealie-rag-staging-llm
+      - TRACING_ENABLED=true
+      - TRACING_ENVIRONMENT=staging
       - VECTORDB_K=8
+
+images:
+  - name: ghcr.io/andlogreg/mealierag
+    newTag: feat-langfuse-prompts
