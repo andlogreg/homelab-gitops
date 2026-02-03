@@ -1,0 +1,18 @@
+model_list:
+  - model_name: embed
+    litellm_params:
+      model: ollama/bge-m3
+      api_base: http://ollama-helios.andlogreg.work
+      api_key: ""
+      order: 1
+
+general_settings:
+  proxy_batch_write_at: 60 # Batch write spend updates every 60s
+  database_connection_pool_limit: 10
+
+litellm_settings:
+  json_logs: true
+  success_callback: ["langfuse"]
+
+router_settings:
+  enable_pre_call_checks: true
