@@ -1,49 +1,89 @@
-## Secrets Management
+# Homelab GitOps
 
-This setup assumes git repo may be public but the cluster is trusted.
+A **GitOps** repository managing my hybrid homelab infrastructure. I'm aiming for a reliable, secure, and automated infrastructure management using **Kubernetes (Flux)** and **Terraform** on **Azure**.
 
-Secrets are **not** stored in plaintext.
+## 🏗 Infrastructure Architecture
 
-Secrets are encrypted using:
-- **SOPS (Mozilla)**
-- **age encryption**
+Hybrid architecture combining local bare-metal performance with cloud-managed state and security.
 
-Only encrypted Kubernetes manifests are committed to Git.
-Decryption happens at deploy time inside the cluster via Flux.
+### Clusters
+The infrastructure manages multiple Kubernetes clusters, each serving a distinct purpose:
+-   **`dev-local`**: Local development environment for quickly testing things out.
+-   **`phoenix_staging`**: Staging environment for testing deployments before production.
+-   **`phoenix_production`**: Production environment hosting stable services.
+-   **`helios`**: Specialized environment (e.g., GPU/AI workloads).
 
-Plaintext secrets never leave the local machine.
+### Hybrid Cloud (Azure)
+Resources are provisioned via Terraform in the `cloud/` directory.
+-   **State Management**: Terraform statefiles are securely stored in Azure Blob Storage.
+-   **Key Vaults**: Azure Key Vault is used for reliable secret storage and backups.
+-   **Structure**:
+    -   `cloud/_modules/`: Reusable Terraform modules.
+    -   `cloud/<env>/`: Isolated environment configurations.
 
-### Encrypting new secret
+## 🚀 Deployed Applications
+The stack changes over time as I experiment with new tools and services. Currently, it includes a suite of self-hosted applications, such as:
 
-1. Start with plain secret (Never to be commited)
-   ```yaml
-   apiVersion: v1
-   kind: Secret
-   metadata:
-      name: my-secret
-   type: Opaque
-   stringData:
-      token: super-secret-value
-   ```
-2. Encrypt it in place `sops encrypt -i secret.yaml`
-3. Verify with `sops secret.yaml`
+-   **AI & LLM**: `vllm`, `ollama`, `open-webui`, `litellm`, `mealie-rag`
+-   **Home & Utility**: `home-automation`, `homarr` (dashboard), `mealie` (recipes), `audiobookshelf`, `dashy`
+-   **Infrastructure**: `linkding`, `littlelink`, `n8n` (workflow automation), `pgadmin`, `cloudflared`
 
+## 🛠 Tech Stack
 
-### Pre-commit
+| Category | Technologies |
+|----------|--------------|
+| **Core Platform** | **Kubernetes** (Flux CD), **Terraform** (IaC), **Microsoft Azure** (Hybrid Cloud) |
+| **Observability** | **Prometheus** (Metrics), **Grafana** (Visualisation), **Loki** (Logs), **Alertmanager** |
+| **Storage & DB** | **CloudNativePG** (PostgreSQL HA) |
+| **Security** | **External Secrets Operator** (Azure Key Vault Integration), **SOPS/age** (Git Encryption), **Cert-Manager** (TLS), **Cloudflare Tunnel** (Zero Trust) |
+| **AI & Edge** | **NVIDIA GPU Operator** (Hardware Acceleration), **vLLM**, **Ollama** |
+| **Automation** | **Renovate** (Dependency Updates), **GitHub Actions** (CI/CD) |
 
-Pre-commit hooks are used locally to:
+---
 
--  prevent accidental plaintext secret commits.
--  enforce git commit message style.
--  format yaml files.
+## 🔐 Secrets Management
+
+### 1. Git Encryption (At Rest)
+-   **Tooling**: **Mozilla SOPS** + **age**.
+-   **Strategy**: All secrets committed to Git are encrypted.
+-   **Trust**: The repo is untrusted (public); the secret keys never leave the developer's local machine or the cluster.
+
+### 2. Runtime Injection (Production)
+-   **Tooling**: **External Secrets Operator (ESO)** + **Azure Key Vault**.
+-   **Strategy**: Production-grade secrets (API keys, database credentials) are stored in **Azure Key Vault**. ESO securely syncs them into Kubernetes `Secrets` at runtime via `ClusterSecretStore`.
+-   **Benefit**: Centralized audit logging, rotation, and access control on Azure.
+
+### Workflow for New Secrets (Git-based)
+1.  Create a plain secret (NEVER COMMIT THIS):
+    ```yaml
+    apiVersion: v1
+    kind: Secret
+    metadata:
+        name: my-secret
+    stringData:
+        token: super-secret-value
+    ```
+2.  Encrypt it: `sops encrypt -i secret.yaml`
+3.  Commit the encrypted file.
 
 ### Key Rotation
+1.  Generate new age key pair.
+2.  Update `.sops.yaml`.
+3.  Re-encrypt: `sops updatekeys -y -r secret.yaml`.
 
-1. Generate a new age key pair
-2. Update `.sops.yaml` with the new public key
-3. Re-encrypt existing secrets:
-   ```bash
-   sops updatekeys -y secret.yaml
-   ```
-4. Update the age private key stored in the flux-system namespace
-5. Commit the re-encrypted manifests
+## ⚡ Developer Workflow
+
+### Pre-commit Hooks
+Verify everything before it hits the remote:
+-   Prevent plaintext secret commits (`detect-secrets`, etc).
+-   Enforce commit message styles.
+-   Lint and format YAML/Terraform.
+
+### Azure & Terraform
+```bash
+# Login
+az login --use-device-code
+
+# Terraform Init
+terraform init -backend-config=backend.hcl
+```
