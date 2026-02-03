@@ -12,8 +12,6 @@ configMapGenerator:
   - name: mealie-rag-config
     behavior: merge
     literals:
-      - MEALIE_API_URL=http://mealie.mealie.svc.cluster.local:9000/api/recipes
-      - VECTORDB_URL=http://mealie-rag-qdrant:6333
-      - OLLAMA_BASE_URL=http://ollama-helios.andlogreg.work
-      - LLM_MODEL=llama3.1:8b
-      - VECTORDB_K=8
+      - LLM_MODEL=mealie-rag-llm-production
+      - EMBEDDING_MODEL=mealie-rag-embedding-production
+      - TRACING_ENVIRONMENT=production

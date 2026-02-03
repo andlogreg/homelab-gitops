@@ -12,7 +12,13 @@ configMapGenerator:
       - DELETE_COLLECTION_IF_EXISTS=true
       - SEARCH_STRATEGY=multiquery
       - LOG_LEVEL=debug
+      - MEALIE_API_URL=http://mealie.mealie.svc.cluster.local:9000/api/recipes
+      - VECTORDB_URL=http://mealie-rag-qdrant:6333
+      - LLM_PROVIDER=openai
+      - LLM_BASE_URL=http://litellm.litellm.svc.cluster.local:4000
+      - TRACING_ENABLED=true
+      - VECTORDB_K=8
 
 images:
   - name: ghcr.io/andlogreg/mealierag
-    newTag: mealierag-v0.5.1
+    newTag: mealierag-v0.6.0

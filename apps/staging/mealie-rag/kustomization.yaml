@@ -5,32 +5,21 @@ resources:
   - ../../base/mealie-rag
   - ingress.yaml
 
-patches:
-  - path: external-secret.yaml
-  - target:
-      kind: Deployment
-      name: mealie-rag
-    patch: |
-      - op: add
-        path: /spec/template/spec/containers/0/imagePullPolicy
-        value: Always
+# patches:
+#   - path: external-secret.yaml
+#   - target:
+#       kind: Deployment
+#       name: mealie-rag
+#     patch: |
+#       - op: add
+#         path: /spec/template/spec/containers/0/imagePullPolicy
+#         value: Always
 
 configMapGenerator:
   - name: mealie-rag-config
     behavior: merge
     literals:
-      - MEALIE_API_URL=http://mealie.mealie.svc.cluster.local:9000/api/recipes
       - MEALIE_EXTERNAL_URL=http://mealie-staging.andlogreg.work
-      - VECTORDB_URL=http://mealie-rag-qdrant:6333
-      - OLLAMA_BASE_URL=http://ollama-helios.andlogreg.work
-      - LLM_PROVIDER=openai
-      - LLM_BASE_URL=http://litellm.litellm.svc.cluster.local:4000
       - LLM_MODEL=mealie-rag-llm-staging
       - EMBEDDING_MODEL=mealie-rag-embedding-staging
-      - TRACING_ENABLED=true
       - TRACING_ENVIRONMENT=staging
-      - VECTORDB_K=8
-
-images:
-  - name: ghcr.io/andlogreg/mealierag
-    newTag: feat-langfuse-prompts
