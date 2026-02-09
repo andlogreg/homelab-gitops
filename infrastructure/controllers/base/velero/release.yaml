@@ -21,13 +21,13 @@ spec:
     snapshotsEnabled: false
     deployNodeAgent: true
     configuration:
+      logFormat: json
       backupStorageLocation:
         - name: default
           provider: velero.io/azure
           bucket: velero-backups
           config:
             storageAccount: "${STORAGE_ACCOUNT_NAME}"
-            # TODO: currently substituted from the mealie flux secret. See `substituteFrom` in infrastructure.yaml
             storageAccountURI: "https://${STORAGE_ACCOUNT_NAME}.blob.core.windows.net"
             storageAccountKeyEnvVar: "AZURE_STORAGE_ACCOUNT_ACCESS_KEY"  # pragma: allowlist secret
     initContainers:

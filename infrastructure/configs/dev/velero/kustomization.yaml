@@ -4,3 +4,4 @@ namespace: velero
 resources:
   # NOTE: added in `configs` since velero needs to create the secret first
   - external_secret.yaml
+  - schedule.yaml
