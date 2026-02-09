@@ -31,7 +31,7 @@ module "storage" {
   resource_group_name  = "rg-homelab-staging"
 
   # Common backup targets
-  containers = ["cnpg-backups"]
+  containers = ["cnpg-backups", "velero-backups"]
 
   tags = {
     environment = "staging"
