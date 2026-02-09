@@ -8,6 +8,9 @@ spec:
     excludedNamespaces:
     - flux-system
     - kube-system
+    - monitoring
+    - velero
+    - cnpg-system
     includedResources:
     - deployments
     - pods
