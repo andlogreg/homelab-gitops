@@ -3,6 +3,7 @@ kubeconfig.yaml
 *.agekey
 age.key
 
+.DS_Store
 
 # Local .terraform directories
 .terraform/
