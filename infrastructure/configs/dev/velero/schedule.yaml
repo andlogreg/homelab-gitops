@@ -13,4 +13,4 @@ spec:
     - pods
     - pvc
     - pv
-    ttl: 600h
+    ttl: 480h # 20 days
