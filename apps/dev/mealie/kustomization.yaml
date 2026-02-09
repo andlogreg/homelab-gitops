@@ -10,3 +10,4 @@ patches:
       kind: Cluster
       name: mealie-db-00
   - path: references_patch.yaml
+  - path: velero_backup_patch.yaml
