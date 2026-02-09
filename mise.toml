@@ -1,4 +1,5 @@
 [tools]
+cloudflared = "latest"
 pre-commit = "latest"
 flux2 = "latest"
 k3d = "latest"
