@@ -11,6 +11,8 @@ spec:
     - monitoring
     - velero
     - cnpg-system
+    - cert-manager
+    - external-secrets
     includedResources:
     - deployments
     - pods
