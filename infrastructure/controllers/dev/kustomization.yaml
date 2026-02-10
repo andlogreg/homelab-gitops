@@ -4,4 +4,4 @@ resources:
   - cert-manager
   - cnpg
   - external-secrets
-  # - velero
+  - velero

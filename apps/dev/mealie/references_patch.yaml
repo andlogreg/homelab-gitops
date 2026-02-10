@@ -11,7 +11,7 @@ spec:
             - name: POSTGRES_URL_OVERRIDE
               valueFrom:
                 secretKeyRef:
-                  name: mealie-db-01-app
+                  name: mealie-db-02-app
 ---
 apiVersion: external-secrets.io/v1
 kind: ExternalSecret
@@ -19,12 +19,12 @@ metadata:
   name: mealie-db-credentials
 spec:
   target:
-    name: mealie-db-01-app
+    name: mealie-db-02-app
     template:
       data:
-        pgpass: "mealie-db-01-rw:5432:mealie:mealie:{{ .password }}"
-        jdbc-uri: "jdbc:postgresql://mealie-db-01-rw.mealie:5432/mealie?password={{ .password }}&user=mealie"
-        uri: "postgresql://mealie:{{ .password }}@mealie-db-01-rw.mealie:5432/mealie"
+        pgpass: "mealie-db-02-rw:5432:mealie:mealie:{{ .password }}"
+        jdbc-uri: "jdbc:postgresql://mealie-db-02-rw.mealie:5432/mealie?password={{ .password }}&user=mealie"
+        uri: "postgresql://mealie:{{ .password }}@mealie-db-02-rw.mealie:5432/mealie"
 ---
 apiVersion: postgresql.cnpg.io/v1
 kind: ScheduledBackup
@@ -32,4 +32,4 @@ metadata:
   name: mealie-db-scheduled-backup
 spec:
   cluster:
-    name: mealie-db-01
+    name: mealie-db-02
