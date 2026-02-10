@@ -13,6 +13,7 @@ configMapGenerator:
       - OPENAI_ENABLE_IMAGE_SERVICES=True
 
 patches:
+  - path: velero_backup_patch.yaml
   - target:
       kind: Deployment
       name: mealie

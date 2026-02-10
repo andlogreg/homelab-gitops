@@ -4,3 +4,6 @@ namespace: homarr
 resources:
   - ../../base/homarr
   - ingress.yaml
+
+patches:
+  - path: velero_backup_patch.yaml
