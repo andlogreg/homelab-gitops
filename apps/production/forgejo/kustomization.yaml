@@ -3,3 +3,4 @@ kind: Kustomization
 namespace: forgejo
 resources:
   - ../../base/forgejo
+  - ingress.yaml
