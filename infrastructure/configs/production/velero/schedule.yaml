@@ -1,0 +1,17 @@
+apiVersion: velero.io/v1
+kind: Schedule
+metadata:
+  name: daily
+spec:
+  schedule: 0 5 * * *
+  template:
+    includedNamespaces:
+    - homarr
+    - linkding
+    - mealie
+    includedResources:
+    - deployments
+    - pods
+    - pvc
+    - pv
+    ttl: 480h # 20 days
