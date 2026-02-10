@@ -13,6 +13,10 @@ spec:
     name: flux-system
   path: ./infrastructure/controllers/production
   prune: true
+  postBuild:
+    substituteFrom:
+      - kind: Secret
+        name: velero-backup-creds
   decryption:
     provider: sops
     secretRef:
