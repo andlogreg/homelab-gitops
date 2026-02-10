@@ -11,7 +11,7 @@ configMapGenerator:
     literals:
       - FORGEJO____APP_NAME="Andlogreg - Forgejo"
       - FORGEJO____APP_SLOGAN="Your code, your rules"
-      - FORGEJO__server__PROTOCOL=https
+      - FORGEJO__server__PROTOCOL=http
       - FORGEJO__server__DOMAIN=forgejo.andlogreg.work
       - FORGEJO__server__ROOT_URL=https://forgejo.andlogreg.work
       - FORGEJO__server__SSH_LISTEN_PORT=2222
