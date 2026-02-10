@@ -1,0 +1,19 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  labels:
+    app: forgejo
+  name: forgejo
+spec:
+  ingressClassName: traefik
+  rules:
+  - host: forgejo.andlogreg.work
+    http:
+      paths:
+      - backend:
+          service:
+            name: forgejo
+            port:
+              number: 3000
+        path: /
+        pathType: Prefix

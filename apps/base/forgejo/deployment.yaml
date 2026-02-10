@@ -1,0 +1,84 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: forgejo
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: forgejo
+  template:
+    metadata:
+      labels:
+        app: forgejo
+    spec:
+      securityContext:
+        fsGroup: 1000
+      containers:
+      - name: forgejo
+        image: data.forgejo.org/forgejo/forgejo:14.0.2-rootless
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          runAsGroup: 1000
+          runAsNonRoot: true
+          runAsUser: 1000
+          seccompProfile:
+            type: RuntimeDefault
+        env:
+        - name: USER_UID
+          value: "1000"
+        - name: USER_GID
+          value: "1000"
+        envFrom:
+        - configMapRef:
+            name: forgejo-config
+        ports:
+        - containerPort: 3000
+          name: http
+          protocol: TCP
+        - containerPort: 2222
+          name: ssh
+          protocol: TCP
+        livenessProbe:
+          failureThreshold: 3
+          httpGet:
+            path: /api/healthz
+            port: 3000
+          initialDelaySeconds: 60
+          periodSeconds: 30
+          timeoutSeconds: 5
+        readinessProbe:
+          failureThreshold: 3
+          httpGet:
+            path: /api/healthz
+            port: 3000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+        volumeMounts:
+        - mountPath: /var/lib/gitea
+          name: forgejo-data
+        - mountPath: /etc/gitea
+          name: forgejo-config
+      # initContainers:
+      # - command:
+      #   - sh
+      #   - -c
+      #   - chown -R 1000:1000 /etc/gitea
+      #   image: busybox:1.37
+      #   name: fix-permissions
+      #   securityContext:
+      #     runAsUser: 0
+      #   volumeMounts:
+      #   - mountPath: /etc/gitea
+      #     name: forgejo-config
+      volumes:
+      - name: forgejo-data
+        persistentVolumeClaim:
+          claimName: forgejo-data
+      - name: forgejo-config
+        persistentVolumeClaim:
+          claimName: forgejo-config
