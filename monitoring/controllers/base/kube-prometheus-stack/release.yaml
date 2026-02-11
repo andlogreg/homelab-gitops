@@ -46,3 +46,15 @@ spec:
         serviceMonitorSelector: {}
         # Prometheus find ServiceMonitors in all namespaces
         serviceMonitorNamespaceSelector: {}
+    kubeScheduler:
+      enabled: false
+    kubeControllerManager:
+      enabled: false
+    kubeEtcd:
+      enabled: false
+    defaultRules:
+      rules:
+        etcd: false
+        kubeSchedulerAlerting: false
+        kubeSchedulerRecording: false
+        kubeControllerManager: false
