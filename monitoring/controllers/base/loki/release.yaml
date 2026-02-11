@@ -38,7 +38,7 @@ spec:
         retention_enabled: true
         retention_delete_delay: 6h
         retention_delete_worker_count: 1
-        compaction_interval: 60m
+        compaction_interval: 2h
         delete_request_store: filesystem
       limits_config:
         retention_period: 96h

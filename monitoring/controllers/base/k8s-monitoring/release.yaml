@@ -40,7 +40,8 @@ spec:
       enabled: true
       gatherMethod: volumes
       collector: alloy-logs
-      labelsToKeep: ["app_kubernetes_io_name","container","instance","job","level","namespace","service_name","service_namespace","deployment_environment","deployment_environment_name"]
+      # labelsToKeep: ["app_kubernetes_io_name","container","instance","job","level","namespace","service_name","service_namespace","deployment_environment","deployment_environment_name"]
+      labelsToKeep: ["namespace","pod","container","app_kubernetes_io_name"]
       structuredMetadata:
         pod: pod  # Set structured metadata "pod" from label "pod"
 
