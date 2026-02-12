@@ -7,13 +7,17 @@ resources:
 
 patches:
   - path: external-secret.yaml
-#   - target:
-#       kind: Deployment
-#       name: mealie-rag
-#     patch: |
-#       - op: add
-#         path: /spec/template/spec/containers/0/imagePullPolicy
-#         value: Always
+  - target:
+      kind: Deployment
+      name: mealie-rag
+    patch: |
+      - op: add
+        path: /spec/template/spec/containers/0/imagePullPolicy
+        value: Always
+
+images:
+  - name: ghcr.io/andlogreg/mealierag
+    newTag: feat-structured_outs
 
 configMapGenerator:
   - name: mealie-rag-config
