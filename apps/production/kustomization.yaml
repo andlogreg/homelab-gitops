@@ -8,4 +8,4 @@ resources:
   - litellm
   - littlelink
   - mealie
-  # - mealie-rag
+  - mealie-rag
