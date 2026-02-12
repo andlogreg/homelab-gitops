@@ -5,6 +5,7 @@ resources:
   - littlelink
   - mealie
   # - mealie-rag
+  - n8n
   - ollama
   - open-webui
   - pgadmin
