@@ -46,6 +46,8 @@ spec:
               name: tmp
             - mountPath: /home/node/.cache
               name: n8n-cache
+            - mountPath: /home/node/.npm
+              name: npm-cache
       volumes:
         - name: n8n-claim
           persistentVolumeClaim:
@@ -53,4 +55,6 @@ spec:
         - name: tmp
           emptyDir: {}
         - name: n8n-cache
+          emptyDir: {}
+        - name: npm-cache
           emptyDir: {}
