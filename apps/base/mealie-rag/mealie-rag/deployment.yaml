@@ -15,7 +15,7 @@ spec:
       containers:
         - name: mealie-rag
           image: ghcr.io/andlogreg/mealierag
-          args: ["qa-ui"]
+          args: ["qa-ui-client", "--api-url", "http://mealie-rag-api:8000"]
           envFrom:
             - secretRef:
                 name: mealie-rag-config
@@ -23,4 +23,31 @@ spec:
                 name: mealie-rag-config
           ports:
             - containerPort: 7860
+              name: http
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mealie-rag-api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mealie-rag-api
+  template:
+    metadata:
+      labels:
+        app: mealie-rag-api
+    spec:
+      containers:
+        - name: mealie-rag-api
+          image: ghcr.io/andlogreg/mealierag
+          args: ["qa-api"]
+          envFrom:
+            - secretRef:
+                name: mealie-rag-config
+            - configMapRef:
+                name: mealie-rag-config
+          ports:
+            - containerPort: 8000
               name: http

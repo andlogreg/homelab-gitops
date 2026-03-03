@@ -9,3 +9,15 @@ spec:
     - protocol: TCP
       port: 7860
   type: ClusterIP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mealie-rag-api
+spec:
+  selector:
+    app: mealie-rag-api
+  ports:
+    - protocol: TCP
+      port: 8000
+  type: ClusterIP
