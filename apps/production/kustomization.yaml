@@ -10,5 +10,5 @@ resources:
   - mealie
   - mealie-rag
   - n8n
-  - ollama
-  - open-webui
+  # - ollama
+  # - open-webui
