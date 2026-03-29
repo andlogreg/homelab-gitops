@@ -1,0 +1,19 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  labels:
+    app: open-webui
+  name: open-webui
+spec:
+  ingressClassName: traefik
+  rules:
+  - host: chat.andlogreg.work
+    http:
+      paths:
+      - backend:
+          service:
+            name: open-webui
+            port:
+              number: 80
+        path: /
+        pathType: Prefix

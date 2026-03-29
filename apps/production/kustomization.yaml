@@ -11,3 +11,4 @@ resources:
   - mealie-rag
   - n8n
   - ollama
+  - open-webui
