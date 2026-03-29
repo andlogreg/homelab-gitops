@@ -10,3 +10,4 @@ resources:
   - mealie
   - mealie-rag
   - n8n
+  - ollama
