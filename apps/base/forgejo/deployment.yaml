@@ -16,7 +16,7 @@ spec:
         fsGroup: 1000
       containers:
       - name: forgejo
-        image: data.forgejo.org/forgejo/forgejo:14.0.2-rootless
+        image: data.forgejo.org/forgejo/forgejo:14.0.5-rootless
         securityContext:
           allowPrivilegeEscalation: false
           capabilities:
