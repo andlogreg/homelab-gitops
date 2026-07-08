@@ -25,7 +25,7 @@ Resources are provisioned via Terraform in the `cloud/` directory.
 The stack changes over time as I experiment with new tools and services. Currently, it includes a suite of self-hosted applications, such as:
 
 -   **AI & LLM**: `vllm`, `ollama`, `open-webui`, `litellm`, `mealie-rag`
--   **Home & Utility**: `home-automation`, `homarr` (dashboard), `mealie` (recipes), `audiobookshelf`, `dashy`
+-   **Home & Utility**: `homarr` (dashboard), `mealie` (recipes), `audiobookshelf`, `dashy`
 -   **Infrastructure**: `linkding`, `littlelink`, `n8n` (workflow automation), `pgadmin`, `cloudflared`
 
 ## 🛠 Tech Stack
