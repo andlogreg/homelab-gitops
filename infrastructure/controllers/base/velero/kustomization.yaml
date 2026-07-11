@@ -1,7 +1,9 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
-  - external_secret.yaml
+  # NOTE: the velero-backup-creds ExternalSecret lives in the `configs` layer,
+  # not here — the ESO CRD isn't installed until this controllers layer applies,
+  # so an ExternalSecret here fails dry-run and blocks the whole apply (Flux 2.9.x).
   - namespace.yaml
   - release.yaml
   - repository.yaml

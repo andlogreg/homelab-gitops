@@ -3,5 +3,8 @@ kind: Kustomization
 namespace: velero
 resources:
   # NOTE: added in `configs` since velero needs to create the secret first
+  # (and the ESO CRD must exist before these ExternalSecrets are applied —
+  # controllers installs ESO, configs dependsOn controllers).
   - external_secret.yaml
+  - external_secret_backup_creds.yaml
   - schedule.yaml
