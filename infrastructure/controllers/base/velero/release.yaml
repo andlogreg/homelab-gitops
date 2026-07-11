@@ -16,6 +16,11 @@ spec:
         name: velero
       interval: 12h
   values:
+    # The chart's upgrade-crds hook pulls docker.io/bitnamilegacy/kubectl:1.36,
+    # which no longer exists (Bitnami legacy-image migration) and blocks install.
+    # CRDs are installed by the chart's crds/ dir on first install, so the hook
+    # is redundant here. Disable it; revisit if bumping the chart needs CRD upgrades.
+    upgradeCRDs: false
     credentials:
       existingSecret: velero-backup-creds  # pragma: allowlist secret
     snapshotsEnabled: false
