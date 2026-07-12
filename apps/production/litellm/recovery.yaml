@@ -1,0 +1,23 @@
+# task-21 recovery: rebuild the litellm CNPG cluster as a new generation (-00 -> -01),
+# recovering from the frozen archive (externalCluster serverName litellm-db-00). No
+# recoveryTarget => recover to the end of the archived WAL (freshest; litellm is DB-only,
+# nothing to time-align against). The -01 name means new WAL/base archive under
+# cnpg-backups/litellm/litellm-db-01, so it never overwrites the -00 source archive.
+- op: replace
+  path: /metadata/name
+  value: litellm-db-01
+- op: replace
+  path: /spec/bootstrap
+  value:
+    recovery:
+      source: litellm-db-backup
+      database: litellm
+- op: add
+  path: /spec/externalClusters
+  value:
+    - name: litellm-db-backup
+      plugin:
+        name: barman-cloud.cloudnative-pg.io
+        parameters:
+          barmanObjectName: litellm-db-objectstore-archive
+          serverName: litellm-db-00
