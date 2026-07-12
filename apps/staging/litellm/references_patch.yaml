@@ -1,0 +1,40 @@
+# task-21 recovery: repoint everything that referenced litellm-db-00 at the recovered
+# litellm-db-01 (app DATABASE_URL secret, the ESO-templated app secret + its rw hostname,
+# and the ScheduledBackup target).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: litellm
+spec:
+  template:
+    spec:
+      containers:
+        - name: litellm
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: litellm-db-01-app
+                  key: uri
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: litellm-db-credentials
+spec:
+  target:
+    name: litellm-db-01-app
+    template:
+      data:
+        password: "{{ .password }}"
+        pgpass: "litellm-db-01-rw:5432:litellm:litellm:{{ .password }}"
+        jdbc-uri: "jdbc:postgresql://litellm-db-01-rw.litellm:5432/litellm?password={{ .password }}&user=litellm"
+        uri: "postgresql://litellm:{{ .password }}@litellm-db-01-rw.litellm:5432/litellm"
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: ScheduledBackup
+metadata:
+  name: litellm-db-scheduled-backup
+spec:
+  cluster:
+    name: litellm-db-01
