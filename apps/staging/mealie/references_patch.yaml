@@ -1,0 +1,40 @@
+# task-21 recovery: repoint everything that referenced mealie-db-00 at the recovered
+# mealie-db-01 (app POSTGRES_URL_OVERRIDE secret, the ESO-templated app secret + its rw
+# hostname, and the ScheduledBackup target).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mealie
+spec:
+  template:
+    spec:
+      containers:
+        - name: mealie
+          env:
+            - name: POSTGRES_URL_OVERRIDE
+              valueFrom:
+                secretKeyRef:
+                  name: mealie-db-01-app
+                  key: uri
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: mealie-db-credentials
+spec:
+  target:
+    name: mealie-db-01-app
+    template:
+      data:
+        password: "{{ .password }}"
+        pgpass: "mealie-db-01-rw:5432:mealie:mealie:{{ .password }}"
+        jdbc-uri: "jdbc:postgresql://mealie-db-01-rw.mealie:5432/mealie?password={{ .password }}&user=mealie"
+        uri: "postgresql://mealie:{{ .password }}@mealie-db-01-rw.mealie:5432/mealie"
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: ScheduledBackup
+metadata:
+  name: mealie-db-scheduled-backup
+spec:
+  cluster:
+    name: mealie-db-01
