@@ -1,0 +1,20 @@
+# Read-only recovery source: the frozen pre-teardown barman archive (task-21).
+# Points at the *-archive-pre-t12 container so recovery never reads/writes the live
+# cnpg-backups path. Referenced by recovery.yaml's externalCluster; the -01 cluster's
+# own WAL archiving still uses the live mealie-db-objectstore (base).
+apiVersion: barmancloud.cnpg.io/v1
+kind: ObjectStore
+metadata:
+  name: mealie-db-objectstore-archive
+spec:
+  configuration:
+    destinationPath: "https://${STORAGE_ACCOUNT_NAME}.blob.core.windows.net/cnpg-backups-archive-pre-t12/mealie"
+    azureCredentials:
+      storageAccount:
+        name: cnpg-backup-creds
+        key: storage-account-name
+      storageSasToken:
+        name: cnpg-backup-creds
+        key: storage-account-key
+    wal:
+      compression: gzip

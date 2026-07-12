@@ -4,6 +4,7 @@ namespace: mealie
 resources:
   - ../../base/mealie
   - external-secret-openai.yaml
+  - objectstore-archive.yaml
 
 configMapGenerator:
   - name: mealie-config
@@ -14,6 +15,12 @@ configMapGenerator:
 
 patches:
   - path: velero_backup_patch.yaml
+  # task-21: recover the CNPG db from the frozen pre-teardown archive (see recovery.yaml)
+  - path: recovery.yaml
+    target:
+      kind: Cluster
+      name: mealie-db-00
+  - path: references_patch.yaml
   - target:
       kind: Deployment
       name: mealie

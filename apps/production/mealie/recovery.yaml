@@ -1,0 +1,27 @@
+# task-21 recovery: rebuild the mealie CNPG cluster as a new generation (-00 -> -01),
+# recovering from the frozen archive (externalCluster serverName mealie-db-00).
+# recoveryTarget.targetTime is ALIGNED to the Velero mealie-data snapshot (daily-20260705115255
+# = 2026-07-05 11:52:55Z) so the recipe DB and the restored media/images PVC are consistent.
+# Feasible via base 20260701T030029 + contiguous WAL (segments 040-06E, single timeline) replayed
+# to the target. The -01 name means new WAL/base archive under cnpg-backups/mealie/mealie-db-01,
+# so it never overwrites the -00 source archive.
+- op: replace
+  path: /metadata/name
+  value: mealie-db-01
+- op: replace
+  path: /spec/bootstrap
+  value:
+    recovery:
+      source: mealie-db-backup
+      database: mealie
+      recoveryTarget:
+        targetTime: "2026-07-05 11:52:55+00"
+- op: add
+  path: /spec/externalClusters
+  value:
+    - name: mealie-db-backup
+      plugin:
+        name: barman-cloud.cloudnative-pg.io
+        parameters:
+          barmanObjectName: mealie-db-objectstore-archive
+          serverName: mealie-db-00
