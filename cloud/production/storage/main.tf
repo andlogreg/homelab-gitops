@@ -33,13 +33,15 @@ module "storage" {
   # Common backup targets
   containers = ["cnpg-backups", "velero-backups"]
 
-  # Backup cleanup: delete the frozen pre-rebuild archives after 30d, and sweep the live backup
-  # containers 30d after last write — clear of the in-cluster Velero 20d TTL + CNPG 14d retention,
-  # and the window backups survive a total cluster loss.
+  # Backup cleanup: delete the frozen pre-rebuild archives after 30d. Sweep the live backup
+  # containers 180d after last write — this is the total-loss recovery window. The in-cluster
+  # Velero TTL (20d) and CNPG retention (14d) keep the active generation small while a cluster is
+  # alive, so this rule only bites a generation that has gone cold: a retired one, or all of them
+  # after a disaster (giving ~6 months to rebuild and restore before the latest backups are removed).
   lifecycle_management = {
     enabled                        = true
     archive_retention_days         = 30
-    cold_generation_retention_days = 30
+    cold_generation_retention_days = 180
   }
 
   tags = {
