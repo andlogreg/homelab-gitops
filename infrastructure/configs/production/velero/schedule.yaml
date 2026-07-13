@@ -6,6 +6,7 @@ spec:
   schedule: 0 5 * * *
   template:
     includedNamespaces:
+    - forgejo
     - homarr
     - linkding
     - mealie

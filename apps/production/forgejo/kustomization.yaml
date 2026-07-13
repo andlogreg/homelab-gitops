@@ -4,3 +4,6 @@ namespace: forgejo
 resources:
   - ../../base/forgejo
   - ingress.yaml
+
+patches:
+  - path: velero_backup_patch.yaml

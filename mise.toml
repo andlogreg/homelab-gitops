@@ -6,6 +6,7 @@ flux2 = "latest"
 k3d = "latest"
 k9s = "latest"
 terraform = "latest"
+velero = "latest"      # CLI for operating/verifying Velero backups on the phoenix clusters
 
 [settings]
 experimental = true
