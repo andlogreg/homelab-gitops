@@ -31,6 +31,12 @@ spec:
         - name: default
           provider: velero.io/azure
           bucket: velero-backups
+          # Per-cluster-generation prefix: each rebuild bumps VELERO_BSL_PREFIX
+          # (e.g. phoenix-production-g1 -> -g2) so a fresh cluster writes under a clean
+          # prefix and its TTL-GC can never delete the previous generation's backups.
+          # Seeded in the flux-system/velero-backup-creds substitution secret at bootstrap;
+          # empty default keeps clusters without the seed on the container root.
+          prefix: "${VELERO_BSL_PREFIX:=}"
           config:
             storageAccount: "${STORAGE_ACCOUNT_NAME}"
             storageAccountURI: "https://${STORAGE_ACCOUNT_NAME}.blob.core.windows.net"
