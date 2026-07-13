@@ -66,6 +66,28 @@ variable "blob_properties" {
   }
 }
 
+variable "lifecycle_management" {
+  description = <<-EOT
+    Azure Blob lifecycle management for backup cleanup.
+    Rule A flat-deletes the frozen *-archive-pre-t12 containers after archive_retention_days.
+    Rule B deletes blobs in the live backup containers (velero-backups/, cnpg-backups/) after
+    cold_generation_retention_days since last modification. This sweeps retired generations
+    (a rebuilt cluster writes under a fresh prefix/serverName, so the old one goes cold) and
+    also bounds how long backups survive after a total cluster loss, so set it above the
+    in-cluster Velero TTL (20d) and CNPG retention (14d). enabled = false disables the policy.
+  EOT
+  type = object({
+    enabled                        = bool
+    archive_retention_days         = number
+    cold_generation_retention_days = number
+  })
+  default = {
+    enabled                        = false
+    archive_retention_days         = 30
+    cold_generation_retention_days = 30
+  }
+}
+
 variable "tags" {
   description = "Tags to assign to the resource."
   type        = map(string)

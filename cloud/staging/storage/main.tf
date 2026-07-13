@@ -33,6 +33,14 @@ module "storage" {
   # Common backup targets
   containers = ["cnpg-backups", "velero-backups"]
 
+  # Backup cleanup: delete the frozen archives after 30d, and sweep the live backup containers
+  # 30d after last write (> the in-cluster Velero 20d TTL + CNPG 14d retention).
+  lifecycle_management = {
+    enabled                        = true
+    archive_retention_days         = 30
+    cold_generation_retention_days = 30
+  }
+
   tags = {
     environment = "staging"
     project     = "homelab"

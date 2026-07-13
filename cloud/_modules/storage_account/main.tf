@@ -35,3 +35,43 @@ resource "azurerm_storage_container" "containers" {
   storage_account_id    = azurerm_storage_account.storage.id
   container_access_type = "private"
 }
+
+# Backup cleanup. Rule A flat-deletes the frozen pre-rebuild archives; Rule B deletes blobs in
+# the live backup containers after N days since last modification, which sweeps cold/retired
+# generations (a rebuilt cluster writes under a fresh prefix/serverName, so the old one goes cold).
+resource "azurerm_storage_management_policy" "backup_lifecycle" {
+  count              = var.lifecycle_management.enabled ? 1 : 0
+  storage_account_id = azurerm_storage_account.storage.id
+
+  # Rule A — frozen pre-rebuild archives (*-archive-pre-t12): flat delete.
+  rule {
+    name    = "delete-frozen-archives"
+    enabled = true
+    filters {
+      prefix_match = ["velero-backups-archive-pre-t12", "cnpg-backups-archive-pre-t12"]
+      blob_types   = ["blockBlob"]
+    }
+    actions {
+      base_blob {
+        delete_after_days_since_modification_greater_than = var.lifecycle_management.archive_retention_days
+      }
+    }
+  }
+
+  # Rule B — cold/retired generations in the live backup containers. The trailing slash keeps
+  # this OFF the *-archive-pre-t12 containers (Rule A owns those) since their path is
+  # "velero-backups-archive-…", not "velero-backups/…".
+  rule {
+    name    = "sweep-cold-generations"
+    enabled = true
+    filters {
+      prefix_match = ["velero-backups/", "cnpg-backups/"]
+      blob_types   = ["blockBlob"]
+    }
+    actions {
+      base_blob {
+        delete_after_days_since_modification_greater_than = var.lifecycle_management.cold_generation_retention_days
+      }
+    }
+  }
+}
