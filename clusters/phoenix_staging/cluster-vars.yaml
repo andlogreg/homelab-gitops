@@ -1,0 +1,13 @@
+# Per-cluster variables consumed via Flux postBuild.substituteFrom.
+# VELERO_BSL_PREFIX is the backup generation: Velero writes under
+# velero-backups/<VELERO_BSL_PREFIX>/, so a rebuilt cluster starts on a clean
+# prefix and its TTL-GC can never delete the previous generation's backups.
+# Bump the -gN on every cluster rebuild (kept in lockstep with the CNPG
+# Cluster -NN serverName in apps/base/*/postgresql.yaml).
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cluster-vars
+  namespace: flux-system
+data:
+  VELERO_BSL_PREFIX: phoenix-staging-g1
