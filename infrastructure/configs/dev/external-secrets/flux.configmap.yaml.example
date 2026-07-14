@@ -1,0 +1,17 @@
+# Non-secret Flux substitution vars for the ClusterSecretStore.
+# VAULT_URL and AZURE_TENANT_ID are public Azure identifiers, not secrets — they live
+# in a ConfigMap (not a Secret) and are seeded out-of-band per cluster (kept out of this
+# public repo). Consumed via each cluster's infrastructure-configs postBuild.substituteFrom.
+# Seed imperatively instead of copying this file, e.g.:
+#   kubectl -n flux-system create configmap eso-vault-config \
+#     --from-literal=VAULT_URL="https://<vault>.vault.azure.net/" \
+#     --from-literal=AZURE_TENANT_ID="<tenant-guid>" \
+#     --dry-run=client -o yaml | kubectl apply -f -
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: eso-vault-config
+  namespace: flux-system
+data:
+  VAULT_URL: "PLACEHOLDER_VAULT_URL"
+  AZURE_TENANT_ID: "PLACEHOLDER_TENANT_ID"

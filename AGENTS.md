@@ -9,9 +9,11 @@ GitOps for a hybrid homelab: **Flux** reconciles Kubernetes manifests across fou
 the Azure layer (remote state in Azure Blob, secrets in Azure Key Vault).
 
 ## Golden rules
-- **Never commit a plaintext secret — this repo is public.** Everything committed is encrypted with
-  **SOPS/age** (`.sops.yaml`); runtime secrets are pulled from **Azure Key Vault via External
-  Secrets Operator**. `detect-secrets` and the pre-commit hooks enforce this — don't bypass them.
+- **Never commit secret material — this repo is public.** No secret payload, plaintext *or*
+  encrypted, belongs in git: secrets live in **Azure Key Vault** and are pulled in at runtime via
+  **External Secrets Operator** (`ExternalSecret` references only). `gitleaks` plus the local
+  `no-committed-secret-payload` guard (fails on any `kind: Secret` with a populated `data`/`stringData`)
+  enforce this — don't bypass them. (SOPS/age-in-git was retired.)
 - **Flux owns the clusters.** Express changes as manifests here and let Flux reconcile; don't apply
   ad-hoc changes to a cluster or hand-edit Flux-generated files.
 - **Keep environments isolated** — no shared state; scope changes to the right overlay/cluster.

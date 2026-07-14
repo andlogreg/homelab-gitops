@@ -6,11 +6,22 @@ repos:
         args: ['--allow-multiple-documents']
       - id: end-of-file-fixer
       - id: trailing-whitespace
-  - repo: https://github.com/Yelp/detect-secrets
-    rev: v1.5.0
+  # Secret scanning — gitleaks (unified with homelab-infra).
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.18.4
     hooks:
-      - id: detect-secrets
-        args: ['--baseline', '.secrets.baseline']
+      - id: gitleaks
+  # Structural guard: no committed Kubernetes Secret payload. Secrets live in Azure
+  # Key Vault and are pulled in via ExternalSecret — git holds references, never data.
+  - repo: local
+    hooks:
+      - id: no-committed-secret-payload
+        name: no committed Secret data/stringData
+        entry: python scripts/check_no_secret_payload.py
+        language: python
+        additional_dependencies: [pyyaml]
+        files: \.ya?ml$
+        exclude: \.example$
   - repo: https://github.com/commitizen-tools/commitizen
     rev: v4.11.1
     hooks:

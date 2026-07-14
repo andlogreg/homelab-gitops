@@ -13,10 +13,6 @@ spec:
     name: flux-system
   path: ./infrastructure/controllers/helios
   prune: true
-  # decryption:
-  #   provider: sops
-  #   secretRef:
-  #     name: sops-age
 ---
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
@@ -36,5 +32,5 @@ spec:
   prune: true
   postBuild:
     substituteFrom:
-      - kind: Secret
-        name: eso-sp-credentials
+      - kind: ConfigMap
+        name: eso-vault-config

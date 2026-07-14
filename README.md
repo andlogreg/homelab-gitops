@@ -35,7 +35,7 @@ The stack changes over time as I experiment with new tools and services. Current
 | **Core Platform** | **Kubernetes** (Flux CD), **Terraform** (IaC), **Microsoft Azure** (Hybrid Cloud) |
 | **Observability** | **Prometheus** (Metrics), **Grafana** (Visualisation), **Loki** (Logs), **Alertmanager** |
 | **Storage & DB** | **CloudNativePG** (PostgreSQL HA) |
-| **Security** | **External Secrets Operator** (Azure Key Vault Integration), **SOPS/age** (Git Encryption), **Cert-Manager** (TLS), **Cloudflare Tunnel** (Zero Trust) |
+| **Security** | **External Secrets Operator** (Azure Key Vault Integration), **Cert-Manager** (TLS), **Cloudflare Tunnel** (Zero Trust) |
 | **AI & Edge** | **NVIDIA GPU Operator** (Hardware Acceleration), **vLLM**, **Ollama** |
 | **Automation** | **Renovate** (Dependency Updates), **GitHub Actions** (CI/CD) |
 
@@ -43,39 +43,55 @@ The stack changes over time as I experiment with new tools and services. Current
 
 ## 🔐 Secrets Management
 
-### 1. Git Encryption (At Rest)
--   **Tooling**: **Mozilla SOPS** + **age**.
--   **Strategy**: All secrets committed to Git are encrypted.
--   **Trust**: The repo is untrusted (public); the secret keys never leave the developer's local machine or the cluster.
+**One model: no secret material in git.** All secrets — plaintext *or* encrypted — stay out of this
+(public) repo. Git holds only `ExternalSecret` *references*; the values live in **Azure Key Vault**
+and are pulled into the cluster at runtime by the **External Secrets Operator (ESO)**.
 
-### 2. Runtime Injection (Production)
--   **Tooling**: **External Secrets Operator (ESO)** + **Azure Key Vault**.
--   **Strategy**: Production-grade secrets (API keys, database credentials) are stored in **Azure Key Vault**. ESO securely syncs them into Kubernetes `Secrets` at runtime via `ClusterSecretStore`.
--   **Benefit**: Centralized audit logging, rotation, and access control on Azure.
+-   **Store**: **Azure Key Vault** (one per cluster) is the source of truth for every secret.
+-   **Sync**: ESO's `ClusterSecretStore` authenticates to Key Vault (Service Principal, hand-seeded
+    out-of-band) and each `ExternalSecret` materialises a Kubernetes `Secret` at runtime.
+-   **Benefit**: centralized audit logging, rotation, and access control on Azure — nothing to
+    decrypt, and no encryption key to hold or rotate in git.
 
-### Workflow for New Secrets (Git-based)
-1.  Create a plain secret (NEVER COMMIT THIS):
-    ```yaml
-    apiVersion: v1
-    kind: Secret
-    metadata:
-        name: my-secret
-    stringData:
-        token: super-secret-value
+> Historical note: this repo previously committed **SOPS/age**-encrypted secrets. That was retired —
+> even encrypted secrets are unwanted blast radius in a public repo.
+
+### Workflow for a new secret
+1.  Put the value in Azure Key Vault (kebab-case name):
+    ```bash
+    az keyvault secret set --vault-name <kv-...> --name my-app-token --value "<value>"
     ```
-2.  Encrypt it: `sops encrypt -i secret.yaml`
-3.  Commit the encrypted file.
+2.  Add an `ExternalSecret` that references it (mirror an existing one, e.g. `apps/base/homarr/external-secret.yaml`):
+    ```yaml
+    apiVersion: external-secrets.io/v1
+    kind: ExternalSecret
+    metadata:
+      name: my-app
+    spec:
+      refreshInterval: 3h
+      secretStoreRef:
+        kind: ClusterSecretStore
+        name: cluster-secret-store
+      target:
+        name: my-app
+      data:
+      - secretKey: MY_APP_TOKEN
+        remoteRef:
+          key: my-app-token
+    ```
+3.  Wire it into the relevant `kustomization.yaml` and commit. **Never commit a `kind: Secret` with a
+    payload** — the pre-commit guard blocks it.
 
-### Key Rotation
-1.  Generate new age key pair.
-2.  Update `.sops.yaml`.
-3.  Re-encrypt: `sops updatekeys -y -r secret.yaml`.
+### Rotation
+Rotate the value in Azure Key Vault; ESO re-syncs it into the cluster within `refreshInterval`. No git
+change and no encryption-key rotation required.
 
 ## ⚡ Developer Workflow
 
 ### Pre-commit Hooks
 Verify everything before it hits the remote:
--   Prevent plaintext secret commits (`detect-secrets`, etc).
+-   Scan for leaked credentials (`gitleaks`) and block any committed `kind: Secret` that carries a
+    payload (local `no-committed-secret-payload` guard).
 -   Enforce commit message styles.
 -   Lint and format YAML/Terraform.
 
