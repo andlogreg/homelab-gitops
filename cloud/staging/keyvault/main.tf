@@ -50,7 +50,10 @@ output "keyvault_uri" {
   value = module.keyvault.vault_uri
 }
 
-##### Keyvault Service Principal #####
+##### ESO identity — Key Vault access via Workload Identity Federation #####
+# No client secret: the federated credential (oidc.tf) lets ESO's ServiceAccount
+# token be exchanged for a Key Vault token. The app/SP below only carry the
+# identity + the Key Vault role assignment.
 
 resource "azuread_application" "eso" {
   display_name = "sp-homelab-staging-eso"
@@ -62,10 +65,6 @@ resource "azuread_service_principal" "eso" {
   owners    = [data.azuread_client_config.current.object_id]
 }
 
-resource "azuread_service_principal_password" "eso" {
-  service_principal_id = azuread_service_principal.eso.id
-}
-
 resource "azurerm_role_assignment" "eso_kv_secrets" {
   scope                = module.keyvault.id
   role_definition_name = "Key Vault Secrets User"
@@ -74,11 +73,6 @@ resource "azurerm_role_assignment" "eso_kv_secrets" {
 
 output "eso_sp_client_id" {
   value = azuread_application.eso.client_id
-}
-
-output "eso_sp_client_secret" {
-  value     = azuread_service_principal_password.eso.value
-  sensitive = true
 }
 
 output "azure_tenant_id" {
