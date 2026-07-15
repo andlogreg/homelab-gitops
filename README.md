@@ -48,10 +48,12 @@ The stack changes over time as I experiment with new tools and services. Current
 and are pulled into the cluster at runtime by the **External Secrets Operator (ESO)**.
 
 -   **Store**: **Azure Key Vault** (one per cluster) is the source of truth for every secret.
--   **Sync**: ESO's `ClusterSecretStore` authenticates to Key Vault (Service Principal, hand-seeded
-    out-of-band) and each `ExternalSecret` materialises a Kubernetes `Secret` at runtime.
+-   **Sync**: ESO's `ClusterSecretStore` authenticates to Key Vault via **Workload Identity
+    Federation** — the cluster's ServiceAccount token is exchanged for a short-lived Key Vault token,
+    so **no client secret is stored in the cluster**. Each `ExternalSecret` materialises a Kubernetes
+    `Secret` at runtime.
 -   **Benefit**: centralized audit logging, rotation, and access control on Azure — nothing to
-    decrypt, and no encryption key to hold or rotate in git.
+    decrypt, no encryption key in git, and no long-lived cloud credential to rotate.
 
 > Historical note: this repo previously committed **SOPS/age**-encrypted secrets. That was retired —
 > even encrypted secrets are unwanted blast radius in a public repo.
