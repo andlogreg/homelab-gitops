@@ -7,6 +7,7 @@ k3d = "latest"
 k9s = "latest"
 terraform = "latest"
 velero = "latest"      # CLI for operating/verifying Velero backups on the phoenix clusters
+azure-cli = { version = "latest", uvx_args = "--prerelease=allow" }
 
 [settings]
 experimental = true
