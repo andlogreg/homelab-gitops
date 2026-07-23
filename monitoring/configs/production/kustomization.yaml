@@ -1,5 +1,17 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
+namespace: monitoring
 resources:
   - scrapeconfig-proxmox-hosts.yaml
   - prometheusrule-ssd-wear.yaml
+
+# Dashboard-as-code: the kube-prometheus-stack Grafana sidecar auto-imports
+# ConfigMaps labelled grafana_dashboard=1 from the monitoring namespace.
+configMapGenerator:
+  - name: grafana-dashboard-ssd-endurance
+    files:
+      - ssd-endurance.json=dashboards/ssd-endurance.json
+    options:
+      labels:
+        grafana_dashboard: "1"
+      disableNameSuffixHash: true
