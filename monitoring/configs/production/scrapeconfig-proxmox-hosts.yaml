@@ -1,0 +1,18 @@
+apiVersion: monitoring.coreos.com/v1alpha1
+kind: ScrapeConfig
+metadata:
+  name: proxmox-hosts
+  namespace: monitoring
+spec:
+  # node_exporter on the two Proxmox hosts (SMART wear + host metrics). The
+  # hosts run node_exporter on :9100 with a smartmon textfile collector.
+  staticConfigs:
+    - targets: ["192.168.0.51:9100"]
+      labels:
+        instance: david-i
+    - targets: ["192.168.0.52:9100"]
+      labels:
+        instance: david-ii
+  relabelings:
+    - targetLabel: job
+      replacement: proxmox-node

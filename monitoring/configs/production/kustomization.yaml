@@ -1,5 +1,5 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
-# Placeholder: no monitoring configs yet. Keeps the monitoring-configs
-# Flux Kustomization (clusters/*/monitoring.yaml) Ready with nothing to apply.
-resources: []
+resources:
+  - scrapeconfig-proxmox-hosts.yaml
+  - prometheusrule-ssd-wear.yaml

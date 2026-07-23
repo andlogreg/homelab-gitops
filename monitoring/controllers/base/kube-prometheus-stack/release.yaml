@@ -46,6 +46,20 @@ spec:
         serviceMonitorSelector: {}
         # Prometheus find ServiceMonitors in all namespaces
         serviceMonitorNamespaceSelector: {}
+        # Same for ScrapeConfig + PrometheusRule CRDs, so configs/* manifests
+        # (e.g. static external scrape targets, custom alerts) are picked up.
+        scrapeConfigSelectorNilUsesHelmValues: false
+        scrapeConfigSelector: {}
+        scrapeConfigNamespaceSelector: {}
+        ruleSelectorNilUsesHelmValues: false
+        ruleSelector: {}
+        ruleNamespaceSelector: {}
+        # Tame writes onto the low-endurance host SSDs: a 60s scrape/eval interval
+        # roughly halves ingest vs the 30s default, and bound the ephemeral TSDB.
+        scrapeInterval: 60s
+        evaluationInterval: 60s
+        retention: 10d
+        retentionSize: 8GiB
     kubeScheduler:
       enabled: false
     kubeControllerManager:
