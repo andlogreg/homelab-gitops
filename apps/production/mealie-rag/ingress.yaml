@@ -7,7 +7,7 @@ metadata:
 spec:
   ingressClassName: traefik
   rules:
-  - host: mealie-rag.andlogreg.work
+  - host: mealie-rag.prod.andlogreg.work
     http:
       paths:
       - backend:
@@ -27,7 +27,7 @@ metadata:
 spec:
   ingressClassName: traefik
   rules:
-  - host: mealie-rag-api.andlogreg.work
+  - host: mealie-rag-api.prod.andlogreg.work
     http:
       paths:
       - backend:

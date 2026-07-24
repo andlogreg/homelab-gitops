@@ -7,7 +7,7 @@ metadata:
 spec:
   ingressClassName: traefik
   rules:
-  - host: chat-helios.andlogreg.work
+  - host: chat.helios.andlogreg.work
     http:
       paths:
       - backend:

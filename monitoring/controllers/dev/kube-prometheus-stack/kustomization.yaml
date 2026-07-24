@@ -12,4 +12,4 @@ patches:
     patch: |
       - op: replace
         path: /spec/values/grafana/ingress/hosts/0
-        value: grafana-dev.andlogreg.work
+        value: grafana.dev.andlogreg.work

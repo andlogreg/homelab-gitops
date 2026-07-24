@@ -23,7 +23,7 @@ configMapGenerator:
   - name: mealie-rag-config
     behavior: merge
     literals:
-      - MEALIE_EXTERNAL_URL=http://mealie-staging.andlogreg.work
+      - MEALIE_EXTERNAL_URL=http://mealie.staging.andlogreg.work
       - LLM_MODEL=mealie-rag-llm-staging
       - EMBEDDING_MODEL=mealie-rag-embedding-staging
       - TRACING_ENVIRONMENT=staging

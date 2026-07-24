@@ -7,7 +7,7 @@ metadata:
 spec:
   ingressClassName: traefik
   rules:
-  - host: vllm-inference-helios.andlogreg.work
+  - host: vllm.helios.andlogreg.work
     http:
       paths:
       - backend:

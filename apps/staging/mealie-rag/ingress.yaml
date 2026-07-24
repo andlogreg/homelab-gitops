@@ -7,7 +7,7 @@ metadata:
 spec:
   ingressClassName: traefik
   rules:
-  - host: mealie-rag-staging.andlogreg.work
+  - host: mealie-rag.staging.andlogreg.work
     http:
       paths:
       - backend:

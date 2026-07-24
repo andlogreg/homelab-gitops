@@ -2,7 +2,7 @@ model_list:
   - model_name: embed
     litellm_params:
       model: ollama/bge-m3
-      api_base: http://ollama-helios.andlogreg.work
+      api_base: http://ollama.helios.andlogreg.work
       api_key: ""
       order: 1
   - model_name: embed

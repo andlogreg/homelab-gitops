@@ -7,7 +7,7 @@ metadata:
 spec:
   ingressClassName: traefik
   rules:
-  - host: homarr.andlogreg.work
+  - host: homarr.prod.andlogreg.work
     http:
       paths:
       - backend:
