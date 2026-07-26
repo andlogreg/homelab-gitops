@@ -68,6 +68,11 @@ spec:
       enabled: false
     kubeApiServer:
       enabled: false
+    # k3s runs kube-proxy embedded and binds its metrics to localhost, so the
+    # chart's :10249 ServiceMonitor can never scrape it -> a permanently firing
+    # critical KubeProxyDown. Drop both the scrape target and the rule group.
+    kubeProxy:
+      enabled: false
     defaultRules:
       rules:
         etcd: false
@@ -78,6 +83,7 @@ spec:
         kubeApiserverHistogram: false
         kubeApiserverSlos: false
         kubeControllerManager: false
+        kubeProxy: false
     kubelet:
       serviceMonitor:
         metricRelabelings:
