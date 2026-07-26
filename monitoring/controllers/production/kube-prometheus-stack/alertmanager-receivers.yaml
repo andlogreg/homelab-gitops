@@ -47,7 +47,10 @@ spec:
               matchers:
                 - alertname = "Watchdog"
               group_wait: 0s
-              group_interval: 5m
+              # repeat_interval is only re-evaluated on group_interval ticks, so
+              # 5m/5m lands a ping every ~10m and the monitor sits permanently
+              # late. A 1m group_interval makes the 5m repeat mean 5m.
+              group_interval: 1m
               repeat_interval: 5m
             # Slow burn by nature - worth knowing about, not worth an hourly
             # nag. Routed explicitly because it is a warning, not a critical.
@@ -67,12 +70,12 @@ spec:
                 # Substituted by Flux from the ESO-managed alertmanager-telegram-vars
                 # Secret so the id stays out of this public repo.
                 chat_id: ${TELEGRAM_CHAT_ID}
-                # parse_mode is intentionally left unset: Telegram's default is
-                # HTML, and Helm strips an explicit empty string from values
-                # when coalescing, so plain text cannot be selected here at all.
-                # The template therefore escapes every free-text field - an
-                # unescaped < or & in an alert description makes Telegram reject
-                # the message with a 400 and the page is silently lost.
+                # parse_mode is left unset, which means Telegram's default of
+                # HTML. That is fine and in fact the safer mode: for HTML
+                # Alertmanager renders the message with html/template, so alert
+                # text is escaped automatically. (Selecting plain text is not
+                # possible here anyway - Helm strips an explicit empty string
+                # when coalescing values, so the key never reaches the config.)
                 message: '{{ template "telegram.homelab.message" . }}'
                 send_resolved: true
           - name: deadmansswitch
@@ -81,28 +84,30 @@ spec:
                 send_resolved: false
       templateFiles:
         telegram.tmpl: |-
-          {{/* Telegram parses these messages as HTML, so anything that came from
-               an alert has to be escaped or the send fails with a 400 and the
-               notification is lost. Ampersand first, or it double-escapes. */}}
-          {{ define "tg.esc" }}{{ . | reReplaceAll "&" "&amp;" | reReplaceAll "<" "&lt;" | reReplaceAll ">" "&gt;" }}{{ end }}
+          {{/* Do NOT escape interpolated values here. Telegram messages are sent
+               with parse_mode HTML, and for HTML Alertmanager renders this
+               template with html/template, which already escapes anything that
+               came from an alert. Escaping by hand double-escapes it and the
+               reader sees literal &lt; and &amp;. Markup written in the template
+               itself, like <b> below, is still treated as markup. */}}
           {{ define "telegram.homelab.message" }}
-          {{- if eq .Status "firing" }}🔥 FIRING{{ else }}✅ RESOLVED{{ end }} — {{ if .CommonLabels.cluster }}{{ template "tg.esc" .CommonLabels.cluster }}{{ else }}homelab{{ end }}
+          {{- if eq .Status "firing" }}🔥 FIRING{{ else }}✅ RESOLVED{{ end }} — {{ if .CommonLabels.cluster }}{{ .CommonLabels.cluster }}{{ else }}homelab{{ end }}
           {{ range .Alerts }}
-          <b>{{ template "tg.esc" .Labels.alertname }}</b> [{{ template "tg.esc" .Labels.severity }}]
+          <b>{{ .Labels.alertname }}</b> [{{ .Labels.severity }}]
           {{- with .Annotations.summary }}
-          {{ template "tg.esc" . }}
+          {{ . }}
           {{- end }}
           {{- with .Annotations.description }}
-          {{ template "tg.esc" . }}
+          {{ . }}
           {{- end }}
           {{- with .Labels.namespace }}
-          namespace: {{ template "tg.esc" . }}
+          namespace: {{ . }}
           {{- end }}
           {{- with .Labels.instance }}
-          instance: {{ template "tg.esc" . }}
+          instance: {{ . }}
           {{- end }}
           {{- with .Annotations.runbook_url }}
-          runbook: {{ template "tg.esc" . }}
+          runbook: {{ . }}
           {{- end }}
           {{ end }}
           {{- end }}
