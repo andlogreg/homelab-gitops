@@ -7,7 +7,11 @@ spec:
   chart:
     spec:
       chart: kube-prometheus-stack
-      version: "80.x"
+      # Pin exactly, like every other chart here. A range pin looks like it keeps
+      # itself current and does the opposite: it hides which version is actually
+      # deployed, and Renovate leaves it alone because the resolved version still
+      # satisfies the range. This one sat seven majors behind before anyone noticed.
+      version: "87.19.1"
       sourceRef:
         kind: HelmRepository
         name: kube-prometheus-stack

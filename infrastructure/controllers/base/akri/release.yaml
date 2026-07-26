@@ -7,7 +7,9 @@ spec:
   chart:
     spec:
       chart: akri
-      version: "0.x"
+      # Exact, like every other chart here - a range pin hides the deployed
+      # version and Renovate will not widen it.
+      version: "0.13.8"
       sourceRef:
         kind: HelmRepository
         name: akri
