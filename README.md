@@ -37,7 +37,7 @@ The stack changes over time as I experiment with new tools and services. Current
 | **Storage & DB** | **CloudNativePG** (PostgreSQL HA) |
 | **Security** | **External Secrets Operator** (Azure Key Vault Integration), **Cert-Manager** (TLS), **Cloudflare Tunnel** (Zero Trust) |
 | **AI & Edge** | **NVIDIA GPU Operator** (Hardware Acceleration), **vLLM**, **Ollama** |
-| **Automation** | **Renovate** (Dependency Updates), **GitHub Actions** (CI/CD) |
+| **Automation** | **Renovate** (Dependency Updates, self-hosted as an in-cluster CronJob), **pre-commit** (secret scanning + structural guards) |
 
 ---
 
