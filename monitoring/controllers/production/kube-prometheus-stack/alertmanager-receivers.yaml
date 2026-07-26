@@ -67,11 +67,12 @@ spec:
                 # Substituted by Flux from the ESO-managed alertmanager-telegram-vars
                 # Secret so the id stays out of this public repo.
                 chat_id: ${TELEGRAM_CHAT_ID}
-                # Plain text on purpose: with HTML or Markdown, an alert
-                # description containing an unbalanced < or & makes Telegram
-                # reject the message with a 400 and the notification is simply
-                # lost. Formatting is not worth a dropped page.
-                parse_mode: ''
+                # parse_mode is intentionally left unset: Telegram's default is
+                # HTML, and Helm strips an explicit empty string from values
+                # when coalescing, so plain text cannot be selected here at all.
+                # The template therefore escapes every free-text field - an
+                # unescaped < or & in an alert description makes Telegram reject
+                # the message with a 400 and the page is silently lost.
                 message: '{{ template "telegram.homelab.message" . }}'
                 send_resolved: true
           - name: deadmansswitch
@@ -80,24 +81,28 @@ spec:
                 send_resolved: false
       templateFiles:
         telegram.tmpl: |-
+          {{/* Telegram parses these messages as HTML, so anything that came from
+               an alert has to be escaped or the send fails with a 400 and the
+               notification is lost. Ampersand first, or it double-escapes. */}}
+          {{ define "tg.esc" }}{{ . | reReplaceAll "&" "&amp;" | reReplaceAll "<" "&lt;" | reReplaceAll ">" "&gt;" }}{{ end }}
           {{ define "telegram.homelab.message" }}
-          {{- if eq .Status "firing" }}🔥 FIRING{{ else }}✅ RESOLVED{{ end }} — {{ if .CommonLabels.cluster }}{{ .CommonLabels.cluster }}{{ else }}homelab{{ end }}
+          {{- if eq .Status "firing" }}🔥 FIRING{{ else }}✅ RESOLVED{{ end }} — {{ if .CommonLabels.cluster }}{{ template "tg.esc" .CommonLabels.cluster }}{{ else }}homelab{{ end }}
           {{ range .Alerts }}
-          {{ .Labels.alertname }} [{{ .Labels.severity }}]
+          <b>{{ template "tg.esc" .Labels.alertname }}</b> [{{ template "tg.esc" .Labels.severity }}]
           {{- with .Annotations.summary }}
-          {{ . }}
+          {{ template "tg.esc" . }}
           {{- end }}
           {{- with .Annotations.description }}
-          {{ . }}
+          {{ template "tg.esc" . }}
           {{- end }}
           {{- with .Labels.namespace }}
-          namespace: {{ . }}
+          namespace: {{ template "tg.esc" . }}
           {{- end }}
           {{- with .Labels.instance }}
-          instance: {{ . }}
+          instance: {{ template "tg.esc" . }}
           {{- end }}
           {{- with .Annotations.runbook_url }}
-          runbook: {{ . }}
+          runbook: {{ template "tg.esc" . }}
           {{- end }}
           {{ end }}
           {{- end }}
