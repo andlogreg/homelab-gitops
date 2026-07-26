@@ -5,6 +5,16 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: mealie
+  annotations:
+    # POSTGRES_URL_OVERRIDE is an env var from a secretKeyRef, and kubelet never
+    # hot-reloads those. Without this, a rotated DB password reaches Postgres
+    # (CNPG re-keys the role itself) but not mealie, which keeps serving HTTP 200
+    # on its already-authenticated pooled connections holding the old credential,
+    # then fails at some arbitrary later restart with nothing tying the failure
+    # back to the rotation. Named explicitly rather than reloader auto mode: this
+    # is a single-replica app, so a restart is a real if short outage, and only
+    # the secrets listed here are worth one.
+    secret.reloader.stakater.com/reload: "mealie-db-01-app,mealie-openai-secret" # pragma: allowlist secret
 spec:
   template:
     spec:
