@@ -57,6 +57,19 @@
     },
     {
       description: [
+        'Terraform is pinned on purpose (see AGENTS.md): state records the version',
+        'that wrote it, and an older binary cannot read state a newer one wrote.',
+        'Bumping it here without running `mise install` on every machine that',
+        'touches this state locks one of them out - which has already happened',
+        'once. It moves as a deliberate, coordinated decision, so it waits on the',
+        'dependency dashboard instead of opening a PR nobody can safely merge.',
+      ],
+      matchManagers: ['mise'],
+      matchPackageNames: ['terraform'],
+      dependencyDashboardApproval: true,
+    },
+    {
+      description: [
         'The Azure object-store plugin is version-locked to the Velero SERVER,',
         'not to the chart: plugin v1.13.x <-> Velero v1.17.x, v1.14.x <-> v1.18.x.',
         'Renovate cannot see that, and a mismatch breaks the backup path without',
