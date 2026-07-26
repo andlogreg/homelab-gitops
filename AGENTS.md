@@ -20,7 +20,11 @@ the Azure layer (remote state in Azure Blob, secrets in Azure Key Vault).
 
 ## Working here
 - Tooling is pinned with **mise** (`mise install`). Terraform: `az login`, then
-  `terraform init -backend-config=backend.hcl`.
+  `terraform init -backend-config=../../backend.hcl` from a root module. State auth is **Entra ID
+  only** — shared-key access is disabled on the state account, so never add an `access_key` to
+  `backend.hcl`, and don't "fix" an auth failure that way. It means the identity is missing
+  *Storage Blob Data Contributor* on the state container. Keep `terraform` **pinned**, not
+  `latest`: state records the version that wrote it and an older binary can't read it.
 - **Conventional Commits** are enforced (commitizen); all pre-commit hooks must pass.
 - **Push directly to `main`** — no pull-request workflow for this repo.
 

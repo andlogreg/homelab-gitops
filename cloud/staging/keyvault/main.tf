@@ -10,7 +10,8 @@ terraform {
     }
   }
   backend "azurerm" {
-    key = "homelab/cloud/staging/keyvault/terraform.tfstate"
+    key              = "homelab/cloud/staging/keyvault/terraform.tfstate"
+    use_azuread_auth = true
   }
 }
 

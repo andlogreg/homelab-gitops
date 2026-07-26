@@ -1,9 +1,21 @@
-# Use this file for extra backend configuration
-# Usage: terraform init -backend-config=backend.hcl
+# Extra backend configuration for the azurerm state backend.
+# Copy to `backend.hcl` (gitignored) and fill in your own values.
+#
+# Usage (from any root module, e.g. cloud/production/keyvault):
+#   az login
+#   terraform init -backend-config=../../backend.hcl
+#
+# Auth is Microsoft Entra ID (`use_azuread_auth = true`, set in each root module's
+# backend block) via `az login`. Your identity needs the "Storage Blob Data Contributor"
+# role on the state container — Azure *Owner* is management-plane only and does not by
+# itself grant blob data access. Shared-key access is DISABLED on the state account, so
+# there is no account key to configure here, and nothing to leak into this public repo.
 
-storage_account_name = "sttfstate123xyz" # Replace with your unique state storage account name
-resource_group_name = "rg-123xyw"
-container_name = "123xyw"
+storage_account_name = "sttfstate123xyz" # your existing TF-state storage account
+resource_group_name  = "rg-123xyw"       # its resource group (optional under Entra ID auth; kept for clarity)
+container_name       = "123xyw"          # the state container (shared; keyed by path)
 
-# Alternatively, no need to use a file and simply pass the storage account name as an argument:
-# `terraform init -backend-config="storage_account_name=sttfstate123xyz" -backend-config="resource_group_name=rg-123xyw" -backend-config="container_name=123xyw"`
+# Alternatively, skip the file and pass the values as arguments:
+# terraform init -backend-config="storage_account_name=sttfstate123xyz" \
+#                -backend-config="resource_group_name=rg-123xyw" \
+#                -backend-config="container_name=123xyw"

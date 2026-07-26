@@ -15,7 +15,7 @@ The infrastructure manages multiple Kubernetes clusters, each serving a distinct
 
 ### Hybrid Cloud (Azure)
 Resources are provisioned via Terraform in the `cloud/` directory.
--   **State Management**: Terraform statefiles are securely stored in Azure Blob Storage.
+-   **State Management**: Terraform statefiles are securely stored in Azure Blob Storage — accessed with **Microsoft Entra ID** (`use_azuread_auth`), never a storage-account key, on an account with blob versioning + soft delete for recovery.
 -   **Key Vaults**: Azure Key Vault is used for reliable secret storage and backups.
 -   **Structure**:
     -   `cloud/_modules/`: Reusable Terraform modules.
@@ -99,9 +99,43 @@ Verify everything before it hits the remote:
 
 ### Azure & Terraform
 ```bash
-# Login
+# Login — this is also how Terraform authenticates to the state backend
 az login --use-device-code
 
-# Terraform Init
-terraform init -backend-config=backend.hcl
+# The azurerm provider (v4+) will not infer the subscription from the CLI — set it explicitly
+export ARM_SUBSCRIPTION_ID=$(az account show --query id -o tsv)
+
+# Terraform Init (from a root module, e.g. cloud/production/keyvault)
+terraform init -backend-config=../../backend.hcl
+```
+
+State access uses **Entra ID** (`use_azuread_auth = true` in each root module's backend block),
+so there is no storage-account key anywhere. Two consequences worth knowing:
+
+-   Your identity needs the **Storage Blob Data Contributor** role on the state container.
+    Subscription *Owner* is management-plane only and is **not** enough — `init` will fail on a
+    blob-list authorization error. Shared-key access is disabled on the account, so there is no
+    key fallback.
+-   `az storage` commands against that account need `--auth-mode login`. The CLI defaults to key
+    auth regardless of the account's `defaultToOAuthAuthentication` setting, and key auth is now
+    refused (`KeyBasedAuthenticationNotPermitted`). `export AZURE_STORAGE_AUTH_MODE=login` once per
+    shell if you'd rather not repeat the flag.
+
+**Recovering a clobbered state file.** The state account has blob versioning + soft delete, so a
+bad `apply`, `state rm`, or deletion is recoverable. Note that `az storage blob undelete` is *not*
+the path (with versioning on, a deleted blob simply becomes a previous version) — list versions and
+promote one:
+
+```bash
+ACCT=<state-account>; CT=<state-container>; KEY=homelab/cloud/<env>/<module>/terraform.tfstate
+
+# 1. find the good version (newest first; the drift you want to undo is the current one)
+az storage blob list --account-name $ACCT -c $CT --prefix $KEY --include v --auth-mode login \
+  --query "[].{versionId:versionId, isCurrent:isCurrentVersion, modified:properties.lastModified}" -o table
+
+# 2. pull it down and 3. re-upload it as the current version
+az storage blob download --account-name $ACCT -c $CT -n $KEY --version-id <VERSION_ID> \
+  --file recovered.tfstate --auth-mode login
+az storage blob upload --account-name $ACCT -c $CT -n $KEY --file recovered.tfstate \
+  --overwrite --auth-mode login
 ```

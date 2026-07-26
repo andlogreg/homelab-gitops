@@ -6,7 +6,8 @@ terraform {
     }
   }
   backend "azurerm" {
-    key = "homelab/cloud/production/storage/terraform.tfstate"
+    key              = "homelab/cloud/production/storage/terraform.tfstate"
+    use_azuread_auth = true
   }
 }
 
