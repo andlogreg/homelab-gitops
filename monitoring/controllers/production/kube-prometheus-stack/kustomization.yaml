@@ -3,3 +3,6 @@ kind: Kustomization
 namespace: monitoring
 resources:
   - ../../base/kube-prometheus-stack
+
+patches:
+  - path: alertmanager-receivers.yaml

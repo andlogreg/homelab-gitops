@@ -4,6 +4,7 @@ namespace: monitoring
 resources:
   - scrapeconfig-proxmox-hosts.yaml
   - prometheusrule-ssd-wear.yaml
+  - external-secret-alertmanager.yaml
 
 # Dashboard-as-code: the kube-prometheus-stack Grafana sidecar auto-imports
 # ConfigMaps labelled grafana_dashboard=1 from the monitoring namespace.

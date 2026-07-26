@@ -5,6 +5,10 @@ metadata:
   name: monitoring-controllers
   namespace: flux-system
 spec:
+  # The Alertmanager receiver config substitutes a value from an ESO-managed
+  # Secret, so External Secrets has to be up first.
+  dependsOn:
+    - name: infrastructure-configs
   interval: 10m
   retryInterval: 1m
   timeout: 5m
@@ -13,6 +17,13 @@ spec:
     name: flux-system
   path: ./monitoring/controllers/production
   prune: true
+  # Keep this on the controllers path only. The configs path carries Grafana
+  # dashboard JSON, which is full of ${...} Grafana variables that substitution
+  # would mangle.
+  postBuild:
+    substituteFrom:
+      - kind: Secret
+        name: alertmanager-telegram-vars
 ---
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization

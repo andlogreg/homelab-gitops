@@ -1,0 +1,103 @@
+---
+# Production is the only cluster with a live Alertmanager receiver: it is the
+# always-on plane, so an alert here means the household is affected. The other
+# clusters stay UI-only (Alertmanager/Grafana) on purpose - staging carries
+# standing alerts by design and would only train us to ignore the channel.
+#
+# Policy is deny-by-default: the root route drops everything into the "null"
+# receiver, and only the child routes below reach a phone.
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: kube-prometheus-stack
+spec:
+  values:
+    prometheus:
+      prometheusSpec:
+        # Every notification says which cluster it came from.
+        externalLabels:
+          cluster: phoenix-production
+    alertmanager:
+      alertmanagerSpec:
+        # Mounted at /etc/alertmanager/secrets/alertmanager-telegram/<key>.
+        # NOTE: the pod will not start until this Secret exists, so on a
+        # from-scratch bootstrap Alertmanager waits in ContainerCreating until
+        # ESO has synced it. It self-heals on the kubelet's mount retry.
+        secrets:
+          - alertmanager-telegram
+      config:
+        global:
+          resolve_timeout: 5m
+        templates:
+          - /etc/alertmanager/config/*.tmpl
+        route:
+          group_by: ['alertname', 'namespace']
+          # A minute of grouping turns a node reboot into one message
+          # instead of a burst of them.
+          group_wait: 1m
+          group_interval: 5m
+          repeat_interval: 12h
+          receiver: 'null'
+          routes:
+            # Dead-man's switch. Watchdog fires permanently by design, so an
+            # external monitor that STOPS receiving pings is the only thing that
+            # can tell us the whole cluster (and with it, this Alertmanager) is
+            # gone. Must ping well inside the monitor's grace period.
+            - receiver: deadmansswitch
+              matchers:
+                - alertname = "Watchdog"
+              group_wait: 0s
+              group_interval: 5m
+              repeat_interval: 5m
+            # Slow burn by nature - worth knowing about, not worth an hourly
+            # nag. Routed explicitly because it is a warning, not a critical.
+            - receiver: telegram
+              matchers:
+                - alertname = "SsdWearHigh"
+              repeat_interval: 24h
+            - receiver: telegram
+              matchers:
+                - severity = "critical"
+              repeat_interval: 12h
+        receivers:
+          - name: 'null'
+          - name: telegram
+            telegram_configs:
+              - bot_token_file: /etc/alertmanager/secrets/alertmanager-telegram/bot-token
+                # Substituted by Flux from the ESO-managed alertmanager-telegram-vars
+                # Secret so the id stays out of this public repo.
+                chat_id: ${TELEGRAM_CHAT_ID}
+                # Plain text on purpose: with HTML or Markdown, an alert
+                # description containing an unbalanced < or & makes Telegram
+                # reject the message with a 400 and the notification is simply
+                # lost. Formatting is not worth a dropped page.
+                parse_mode: ''
+                message: '{{ template "telegram.homelab.message" . }}'
+                send_resolved: true
+          - name: deadmansswitch
+            webhook_configs:
+              - url_file: /etc/alertmanager/secrets/alertmanager-telegram/healthchecks-url
+                send_resolved: false
+      templateFiles:
+        telegram.tmpl: |-
+          {{ define "telegram.homelab.message" }}
+          {{- if eq .Status "firing" }}🔥 FIRING{{ else }}✅ RESOLVED{{ end }} — {{ .CommonLabels.cluster | default "homelab" }}
+          {{ range .Alerts }}
+          {{ .Labels.alertname }} [{{ .Labels.severity }}]
+          {{- with .Annotations.summary }}
+          {{ . }}
+          {{- end }}
+          {{- with .Annotations.description }}
+          {{ . }}
+          {{- end }}
+          {{- with .Labels.namespace }}
+          namespace: {{ . }}
+          {{- end }}
+          {{- with .Labels.instance }}
+          instance: {{ . }}
+          {{- end }}
+          {{- with .Annotations.runbook_url }}
+          runbook: {{ . }}
+          {{- end }}
+          {{ end }}
+          {{- end }}
