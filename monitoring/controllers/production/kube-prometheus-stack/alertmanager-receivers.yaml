@@ -81,7 +81,7 @@ spec:
       templateFiles:
         telegram.tmpl: |-
           {{ define "telegram.homelab.message" }}
-          {{- if eq .Status "firing" }}🔥 FIRING{{ else }}✅ RESOLVED{{ end }} — {{ .CommonLabels.cluster | default "homelab" }}
+          {{- if eq .Status "firing" }}🔥 FIRING{{ else }}✅ RESOLVED{{ end }} — {{ if .CommonLabels.cluster }}{{ .CommonLabels.cluster }}{{ else }}homelab{{ end }}
           {{ range .Alerts }}
           {{ .Labels.alertname }} [{{ .Labels.severity }}]
           {{- with .Annotations.summary }}
