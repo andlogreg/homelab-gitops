@@ -6,6 +6,21 @@ resource "time_rotating" "secret_rotation" {
 resource "random_password" "mealie_db_credentials_password" {
   length  = 40
   special = true
+
+  # This password is interpolated into a PostgreSQL connection URI
+  # (postgresql://mealie:<password>@<host>:5432/mealie) by the ExternalSecret
+  # template, with no percent-encoding. Two characters from the provider's
+  # default special set break that URI, and neither breaks it loudly:
+  #   @  ends the userinfo component early, so the driver reads the rest of the
+  #      password as the hostname and cannot resolve it.
+  #   %  is read as the start of a percent-escape, so the driver silently
+  #      authenticates with a different password than the one in Key Vault.
+  # At length 40 a default-alphabet password contains an @ roughly 38% of the
+  # time, so most rotations were a coin flip - and because nothing re-reads the
+  # credential until the pod restarts, the breakage surfaced far from its cause.
+  # Every other default special character was verified to round-trip correctly.
+  override_special = "!#$&*()-_=+[]{}<>:?"
+
   keepers = {
     rotation_time = time_rotating.secret_rotation.id
   }
