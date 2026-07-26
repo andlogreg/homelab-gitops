@@ -67,9 +67,11 @@ spec:
           - name: telegram
             telegram_configs:
               - bot_token_file: /etc/alertmanager/secrets/alertmanager-telegram/bot-token
-                # Substituted by Flux from the ESO-managed alertmanager-telegram-vars
-                # Secret so the id stays out of this public repo.
-                chat_id: ${TELEGRAM_CHAT_ID}
+                # Read from the mounted secret like the token, so the id stays out
+                # of this public repo. Needs Alertmanager >= 0.31; below that the
+                # operator drops the field and then rejects the config for having
+                # neither chat_id nor chat_id_file. The two are mutually exclusive.
+                chat_id_file: /etc/alertmanager/secrets/alertmanager-telegram/chat-id
                 # parse_mode is left unset, which means Telegram's default of
                 # HTML. That is fine and in fact the safer mode: for HTML
                 # Alertmanager renders the message with html/template, so alert
