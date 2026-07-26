@@ -1,0 +1,65 @@
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: reloader
+spec:
+  interval: 12h
+  chart:
+    spec:
+      chart: reloader
+      version: "2.2.14"
+      sourceRef:
+        kind: HelmRepository
+        name: stakater
+      interval: 12h
+  install:
+    createNamespace: true
+  values:
+    # Stable, predictable labels (app=reloader, release=reloader) so the
+    # PodMonitor in monitoring/configs/ can select the pod without depending on
+    # the chart's default "<release>-<chart>" fullname.
+    fullnameOverride: reloader
+
+    reloader:
+      # Patch a pod-template annotation instead of injecting a dummy env var
+      # into the container spec (the chart default, "env-vars"). Flux applies
+      # these Deployments server-side; a foreign env var in the container spec
+      # reads as drift, whereas a pod-template annotation this repo never sets
+      # is left alone. Upstream recommends this strategy for GitOps.
+      reloadStrategy: annotations
+
+      # OPT-IN ONLY. Nothing in these clusters restarts unless its Deployment
+      # explicitly names the secret via
+      #   secret.reloader.stakater.com/reload: "<secret>[,<secret>...]"
+      # Every app here runs a single replica, so an unattended restart is an
+      # unattended outage - a cluster-wide "restart anything whose secret moved"
+      # would turn one bad secret sync into a fleet-wide one.
+      autoReloadAll: false
+
+      # Jobs and CronJobs build a fresh pod on every run, so they already start
+      # with the current secret value. Restarting one mid-run would abort work
+      # and buy nothing.
+      ignoreJobs: true
+      ignoreCronJobs: true
+
+      # Only react to a secret being *updated in place* - the External Secrets
+      # path. A secret that is deleted and recreated (a failed sync, a namespace
+      # rebuild) must not cascade into restarts.
+      reloadOnCreate: false
+      reloadOnDelete: false
+
+      # Watched workloads live in their own per-app namespaces, so the watch has
+      # to be cluster-wide. The annotation, not the watch scope, is what limits
+      # the blast radius.
+      watchGlobally: true
+
+      deployment:
+        # A single small controller; sized to stay well clear of the always-on
+        # nodes' memory budget. No CPU limit on purpose: throttling a controller
+        # that is idle 99% of the time only delays the reload it exists to do.
+        resources:
+          requests:
+            cpu: 10m
+            memory: 64Mi
+          limits:
+            memory: 128Mi

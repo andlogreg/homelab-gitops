@@ -3,3 +3,7 @@ kind: Kustomization
 resources:
   - external-secrets
   - gpu-operator
+  # Ships here for parity with the other clusters, but is unverified: helios is
+  # normally powered off, and no workload in apps/helios/ is annotated for
+  # reload today. It reconciles whenever the box next comes up.
+  - reloader
