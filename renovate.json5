@@ -1,0 +1,74 @@
+{
+  $schema: 'https://docs.renovatebot.com/renovate-schema.json',
+
+  // JSON5 (not JSON) so the non-obvious choices below can carry their reasoning,
+  // the same way the manifests in this repo do.
+
+  // --- Managers -------------------------------------------------------------
+
+  // Container images live in plain manifests all over apps/ and infrastructure/,
+  // not in a conventional layout, so the kubernetes manager needs to be pointed
+  // at every YAML file.
+  kubernetes: {
+    managerFilePatterns: ['/\\.yaml$/'],
+  },
+
+  // The flux manager defaults to matching gotk-components.yaml and NOTHING else.
+  // Without this, HelmRelease chart versions are invisible to Renovate: the
+  // whole controller/monitoring chart surface silently froze for months while
+  // the nightly run reported success. Point it at every YAML file too.
+  flux: {
+    managerFilePatterns: ['/\\.yaml$/'],
+  },
+
+  // --- Queue visibility -----------------------------------------------------
+
+  // The dashboard issue is the queue this repo is swept from. It is the only
+  // place that shows updates which have not become PRs, so it has to be on.
+  dependencyDashboard: true,
+
+  // Renovate's defaults (prConcurrentLimit 10, prHourlyLimit 2) throttle
+  // silently: the repo sat at exactly 10 open PRs for months while everything
+  // behind them waited unseen and unlogged. Unlimited here is safe because
+  // majors need dashboard approval (below) and the rest are small, reviewable
+  // version bumps.
+  prConcurrentLimit: 0,
+  prHourlyLimit: 0,
+
+  packageRules: [
+    {
+      description: [
+        'Majors change behaviour, not just a version number, and several of them',
+        'land on the always-on plane. They wait on the dependency dashboard for a',
+        'deliberate tick instead of opening a PR on their own.',
+      ],
+      matchUpdateTypes: ['major'],
+      dependencyDashboardApproval: true,
+    },
+    {
+      description: [
+        'gotk-components.yaml is owned by the flux manager, which bumps the whole',
+        'Flux release in one go. Letting the kubernetes manager see the same file',
+        'produces a second, conflicting PR per controller image.',
+      ],
+      matchManagers: ['kubernetes'],
+      matchFileNames: ['**/flux-system/gotk-components.yaml'],
+      enabled: false,
+    },
+    {
+      description: [
+        'The Azure object-store plugin is version-locked to the Velero server it',
+        'runs beside - plugin v1.13.x <-> Velero v1.17.x, v1.14.x <-> v1.18.x.',
+        'Renovate cannot see that coupling, and a solo plugin bump breaks the',
+        'backup path without breaking anything visible, so the plugin and the',
+        'chart move together in a single PR. Check the plugin compatibility',
+        'matrix before merging one.',
+      ],
+      groupName: 'velero',
+      matchPackageNames: [
+        'velero',
+        'velero/velero-plugin-for-microsoft-azure',
+      ],
+    },
+  ],
+}
