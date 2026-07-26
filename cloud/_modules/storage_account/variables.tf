@@ -39,19 +39,20 @@ variable "containers" {
 }
 
 variable "network_rules" {
-  description = "Network rules for the storage account."
+  description = <<-EOT
+    Network rules for the storage account. Leave null (the default) to leave the account
+    open, which is what a network_rules block cannot express: the provider requires
+    default_action = "Deny" plus at least one ip_rule or subnet id, and silently declines
+    to record an all-permissive block, so declaring one yields a diff that never converges.
+    Set this only to actually restrict access.
+  EOT
   type = object({
     default_action             = string
     ip_rules                   = list(string)
     virtual_network_subnet_ids = list(string)
     bypass                     = list(string)
   })
-  default = {
-    default_action             = "Allow"
-    ip_rules                   = []
-    virtual_network_subnet_ids = []
-    bypass                     = ["AzureServices"]
-  }
+  default = null
 }
 
 variable "blob_properties" {

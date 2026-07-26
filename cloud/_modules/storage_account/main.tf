@@ -11,11 +11,15 @@ resource "azurerm_storage_account" "storage" {
   is_hns_enabled             = var.is_hns_enabled
   tags                       = var.tags
 
-  network_rules {
-    default_action             = var.network_rules.default_action
-    ip_rules                   = var.network_rules.ip_rules
-    virtual_network_subnet_ids = var.network_rules.virtual_network_subnet_ids
-    bypass                     = var.network_rules.bypass
+  # Emitted only when the rules actually restrict something (see the variable's description).
+  dynamic "network_rules" {
+    for_each = var.network_rules == null ? [] : [var.network_rules]
+    content {
+      default_action             = network_rules.value.default_action
+      ip_rules                   = network_rules.value.ip_rules
+      virtual_network_subnet_ids = network_rules.value.virtual_network_subnet_ids
+      bypass                     = network_rules.value.bypass
+    }
   }
 
   blob_properties {
