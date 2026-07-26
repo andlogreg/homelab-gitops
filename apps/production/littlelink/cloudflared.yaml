@@ -2,6 +2,13 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: cloudflared
+  annotations:
+    # TUNNEL_TOKEN is an env var from a secretKeyRef, and kubelet never
+    # hot-reloads those. Rotating the token without a restart is the worst shape
+    # of this problem: the tunnel keeps running on a credential that has already
+    # been revoked at Cloudflare, and only drops when something restarts it.
+    # Two replicas, so the reload rolls with no gap in the tunnel.
+    secret.reloader.stakater.com/reload: "cloudflared-tunnel-token" # pragma: allowlist secret
 spec:
   replicas: 2
   selector:

@@ -2,6 +2,13 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: mealie
+  annotations:
+    # Same reasoning as the staging/production overlays: POSTGRES_URL_OVERRIDE
+    # is an env var from a secretKeyRef and kubelet never hot-reloads those, so
+    # a rotated password would reach Postgres but not the app. Kept here mainly
+    # so a dev cluster is a faithful rehearsal of the other two - there is no
+    # openai secret in this overlay to list alongside it.
+    secret.reloader.stakater.com/reload: "mealie-db-02-app" # pragma: allowlist secret
 spec:
   template:
     spec:

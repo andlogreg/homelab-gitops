@@ -2,6 +2,12 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: mealie-rag
+  annotations:
+    # mealie-rag-config arrives via envFrom, which kubelet never hot-reloads.
+    # Internal tool with no household dependency, so an unattended restart costs
+    # nothing. The sibling ingest CronJob is deliberately NOT annotated: it
+    # builds a fresh pod every run and so already starts on the current secret.
+    secret.reloader.stakater.com/reload: "mealie-rag-config" # pragma: allowlist secret
 spec:
   replicas: 1
   selector:
@@ -29,6 +35,9 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: mealie-rag-api
+  annotations:
+    # Same secret, same reasoning as the mealie-rag Deployment above.
+    secret.reloader.stakater.com/reload: "mealie-rag-config" # pragma: allowlist secret
 spec:
   replicas: 1
   selector:

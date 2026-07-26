@@ -2,6 +2,13 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: linkding
+  annotations:
+    # linkding-credentials arrives via envFrom, and kubelet never hot-reloads
+    # env vars sourced from a secret - so a rotated superuser credential would
+    # sit in the cluster unread until something happened to restart the pod.
+    # Single replica, so this is a few seconds of downtime; the credential is
+    # re-read cleanly on start, which is what makes it safe to automate.
+    secret.reloader.stakater.com/reload: "linkding-credentials" # pragma: allowlist secret
 spec:
   replicas: 1
   selector:

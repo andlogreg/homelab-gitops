@@ -1,0 +1,38 @@
+---
+# Scrape Reloader so a pod restart is attributable after the fact:
+# reloader_reload_executed_total tells you which namespace a reload fired in and
+# whether it succeeded. Without it, an automatic restart looks exactly like a
+# crash in the pod list.
+#
+# Two things about where this lives:
+#
+#   - It is HERE, in the configs layer, not enabled through the Reloader chart's
+#     own podMonitor value. The PodMonitor CRD is installed by the monitoring
+#     controllers layer, which has no ordering relationship with the
+#     infrastructure controllers layer that owns the Reloader HelmRelease - so on
+#     a from-scratch bootstrap the chart-rendered PodMonitor could be applied
+#     before its CRD exists. This layer depends on the monitoring controllers, so
+#     it cannot. (Same reason the velero ExternalSecret lives in configs.)
+#
+#   - The release=kube-prometheus-stack label is load-bearing. The
+#     serviceMonitor / scrapeConfig / rule selectors are relaxed to {} in the
+#     kube-prometheus-stack values, but podMonitorSelector was left at the chart
+#     default, which matches only this label. Without it the target is silently
+#     never scraped.
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: reloader
+  labels:
+    release: kube-prometheus-stack
+spec:
+  namespaceSelector:
+    matchNames:
+      - reloader
+  selector:
+    matchLabels:
+      app: reloader
+      release: reloader
+  podMetricsEndpoints:
+    - port: http
+      path: /metrics

@@ -5,6 +5,20 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: litellm
+  annotations:
+    # DATABASE_URL is an env var from a secretKeyRef, and kubelet never
+    # hot-reloads those. Without this, a rotated DB password reaches Postgres
+    # (CNPG re-keys the role itself) but not litellm, which keeps running on its
+    # already-open connections holding the old credential until something
+    # restarts it - hours or weeks later, with nothing to connect the failure
+    # back to the rotation. Named explicitly rather than reloader auto mode:
+    # this is a single-replica app, so a restart is an outage and only the
+    # secrets listed here are worth one.
+    #
+    # litellm-secrets is deliberately NOT listed. It carries LITELLM_SALT_KEY,
+    # which encrypts provider keys stored in the database - rotating it in place
+    # makes them undecryptable, and restarting faster does not help that.
+    secret.reloader.stakater.com/reload: "litellm-db-01-app" # pragma: allowlist secret
 spec:
   template:
     spec:
