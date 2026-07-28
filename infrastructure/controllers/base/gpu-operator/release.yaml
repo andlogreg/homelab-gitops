@@ -25,11 +25,12 @@ spec:
         interval: 15s
         honorLabels: true
     driver:
-      # v26.3.3's default 580.126.20 image omitted the Ada GSP firmware on
-      # helios (TASK-7.4 evidence: RmFetchGspRmImages failed). 580.173.02 is
-      # NVIDIA's recommended v26.3.3 driver and keeps the Operator on its
-      # Kubernetes-1.36-supported release.
+      # The v26 images' GSP firmware is unavailable to this passed-through
+      # RTX 4090 (TASK-7.4: RmFetchGspRmImages failed). Use the supported
+      # proprietary module with GSP disabled; 580.173.02 is NVIDIA's
+      # recommended v26.3.3 driver and retains K8s 1.36 support.
       version: "580.173.02"
+      kernelModuleType: proprietary
       # kernel module configuration for NVIDIA driver
       kernelModuleConfig:
         name: "kernel-module-params"
