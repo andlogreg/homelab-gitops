@@ -25,6 +25,11 @@ spec:
         interval: 15s
         honorLabels: true
     driver:
+      # v26.3.3's default 580.126.20 image omitted the Ada GSP firmware on
+      # helios (TASK-7.4 evidence: RmFetchGspRmImages failed). 580.173.02 is
+      # NVIDIA's recommended v26.3.3 driver and keeps the Operator on its
+      # Kubernetes-1.36-supported release.
+      version: "580.173.02"
       # kernel module configuration for NVIDIA driver
       kernelModuleConfig:
         name: "kernel-module-params"
