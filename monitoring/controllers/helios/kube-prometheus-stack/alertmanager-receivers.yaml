@@ -1,0 +1,51 @@
+# Helios is a deliberately-off lab. Alertmanager cannot send while the peaker is
+# down, so a dead-man's switch would create noise rather than useful signal.
+# Route only actionable workload outcomes to the dedicated lab Telegram chat.
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: kube-prometheus-stack
+spec:
+  values:
+    prometheus:
+      prometheusSpec:
+        externalLabels:
+          cluster: helios
+    alertmanager:
+      alertmanagerSpec:
+        secrets:
+          - alertmanager-telegram
+      config:
+        global:
+          resolve_timeout: 5m
+        route:
+          group_by: ['alertname', 'namespace']
+          # Absorb normal boot transients before informing the lab chat.
+          group_wait: 5m
+          group_interval: 5m
+          repeat_interval: 24h
+          receiver: 'null'
+          routes:
+            - receiver: telegram
+              matchers:
+                - alertname = "KubeJobFailed"
+              repeat_interval: 24h
+            - receiver: telegram
+              matchers:
+                - alertname = "KubePersistentVolumeFillingUp"
+              repeat_interval: 24h
+            - receiver: telegram
+              matchers:
+                - alertname = "KubePersistentVolumeInodesFillingUp"
+              repeat_interval: 24h
+            - receiver: telegram
+              matchers:
+                - alertname = "NvidiaGpuXidError"
+              repeat_interval: 24h
+        receivers:
+          - name: 'null'
+          - name: telegram
+            telegram_configs:
+              - bot_token_file: /etc/alertmanager/secrets/alertmanager-telegram/bot-token
+                chat_id_file: /etc/alertmanager/secrets/alertmanager-telegram/chat-id
+                send_resolved: true

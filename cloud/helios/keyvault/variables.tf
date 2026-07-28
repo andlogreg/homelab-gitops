@@ -17,3 +17,8 @@ variable "keyvault_name" {
   description = "Key vault name"
   type        = string
 }
+
+variable "oidc_storage_account_name" {
+  description = "Globally-unique name for the public storage account that hosts the ESO OIDC discovery doc + JWKS (Workload Identity Federation). Lowercase alphanumeric, 3-24 chars."
+  type        = string
+}

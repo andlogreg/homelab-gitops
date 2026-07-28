@@ -2,6 +2,11 @@ apiVersion: batch/v1
 kind: CronJob
 metadata:
   name: mealie-rag-ingest
+  annotations:
+    # Accepted degradation (TASK-7 / Phase 6): the production LiteLLM embedding
+    # route reaches Ollama on the normally-off helios peaker. This nightly,
+    # non-household-critical re-index may fail while golias is powered down.
+    homelab.andlogreg.work/accepted-degradation: "helios peaker may be powered off"
 spec:
   schedule: "0 2 * * *"
   concurrencyPolicy: Forbid

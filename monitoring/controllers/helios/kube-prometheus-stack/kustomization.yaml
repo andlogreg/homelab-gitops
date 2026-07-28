@@ -5,6 +5,7 @@ resources:
   - ../../base/kube-prometheus-stack
 
 patches:
+  - path: alertmanager-receivers.yaml
   - target:
       kind: HelmRelease
       name: kube-prometheus-stack

@@ -5,6 +5,10 @@ metadata:
   name: monitoring-controllers
   namespace: flux-system
 spec:
+  # Alertmanager mounts an ESO-managed Secret, so wait until the WIF store is
+  # reconciled before Helm tries to create the pod.
+  dependsOn:
+    - name: infrastructure-configs
   interval: 10m
   retryInterval: 1m
   timeout: 5m
