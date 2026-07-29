@@ -45,11 +45,14 @@ spec:
       # the passthrough. 580.173.02 is NVIDIA's recommended driver for v26.3.3 and
       # keeps the operator on a K8s-1.36-supported release.
       version: "580.173.02"
-      # Consequence of the above: the proprietary module, with GSP firmware disabled
-      # in kernel-module-params. This is off NVIDIA's preferred path for Ada (they
-      # favour the open module with GSP on) and is a workaround, not a fix - if a
-      # later driver loads GSP cleanly here, drop both this and the
-      # NVreg_EnableGpuFirmware=0 override rather than carrying them forward.
+      # Consequence of the above: the proprietary module, because the OPEN modules
+      # require GSP and cannot load without it - so this line and
+      # NVreg_EnableGpuFirmware=0 in kernel-module-params are one decision, not two.
+      # It is off NVIDIA's preferred path for Ada, and it also reverses a deliberate
+      # earlier power-management setting (see the ConfigMap's comment; measured idle
+      # draw on this card was ~9 W with GSP on). Treat it as a workaround under
+      # investigation: if the firmware load is fixed, restore the open module and
+      # GSP together and re-measure idle draw.
       kernelModuleType: proprietary
       # kernel module configuration for NVIDIA driver
       kernelModuleConfig:
