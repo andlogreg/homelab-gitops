@@ -32,8 +32,10 @@ spec:
             - name: ollama-data
               mountPath: /root/.ollama
           # /api/version is the cheapest documented endpoint that proves the API is up. The
-          # server starts quickly - models are pulled and loaded on demand, not at boot - so
-          # 120s is ample. Note this probe cannot be verified against a running instance
+          # server starts quickly - models are pulled and loaded on demand, not at boot - but
+          # the budget matches its neighbours anyway, since it only bounds a stuck start and
+          # a tight one gets a healthy app killed on a contended node. This probe cannot be
+          # verified against a running instance
           # from either phoenix cluster: the CPU-only overlays cannot schedule this pod, and
           # the GPU host is powered off by design.
           startupProbe:
@@ -42,7 +44,7 @@ spec:
               port: 11434
             periodSeconds: 5
             timeoutSeconds: 3
-            failureThreshold: 24
+            failureThreshold: 90
           readinessProbe:
             httpGet:
               path: /api/version

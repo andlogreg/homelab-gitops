@@ -47,15 +47,16 @@ spec:
         # Replaces initialDelaySeconds: 120 on both probes below. That delay meant every
         # rollout took at least two minutes even when the app was serving in ten seconds,
         # and a genuinely stuck start was retried rather than failed. The startupProbe polls
-        # every 5s, gives up after a bounded 240s, and holds the other two probes off until
-        # it passes.
+        # every 5s, gives up after a bounded 450s, and holds the other two probes off until
+        # it passes. The budget bounds a stuck start rather than estimating a normal one, so
+        # it stays generous enough for a shared-base edit restarting everything at once.
         startupProbe:
           httpGet:
             path: /health/readiness
             port: 4000
           periodSeconds: 5
           timeoutSeconds: 10
-          failureThreshold: 48
+          failureThreshold: 90
         livenessProbe:
           httpGet:
             path: /health/liveliness

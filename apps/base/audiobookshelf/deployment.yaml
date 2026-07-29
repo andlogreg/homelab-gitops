@@ -54,7 +54,7 @@ spec:
               port: 3005
             periodSeconds: 5
             timeoutSeconds: 3
-            failureThreshold: 24
+            failureThreshold: 90
           readinessProbe:
             httpGet:
               path: /healthcheck

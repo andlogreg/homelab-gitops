@@ -61,15 +61,16 @@ spec:
           # database is connected AND migrated AND the app has finished starting, and 503
           # otherwise. Only the second one can tell you the instance is usable.
           #
-          # 5s x 60 = 300s of startup budget: a version jump here can be dozens of
-          # releases of migrations, and the container also sleeps 5s before it starts.
+          # 5s x 90 = 450s of startup budget - a ceiling, not an estimate. A version jump
+          # here can be dozens of releases of migrations, the container sleeps 5s before it
+          # even starts, and a shared-base edit restarts every app on the node at once.
           startupProbe:
             httpGet:
               path: /healthz/readiness
               port: 5678
             periodSeconds: 5
             timeoutSeconds: 3
-            failureThreshold: 60
+            failureThreshold: 90
           readinessProbe:
             httpGet:
               path: /healthz/readiness

@@ -29,7 +29,7 @@ spec:
           volumeMounts:
             - name: webui-data
               mountPath: /app/backend/data
-          # 5s x 60 = 300s. Open WebUI's first boot after an image change can spend minutes
+          # 5s x 90 = 450s. Open WebUI's first boot after an image change can spend minutes
           # initialising before it answers, which is precisely the window that used to be
           # reported as Ready. /health is a plain 200 once it serves; /health/db also
           # exists but is left to monitoring rather than used to gate the endpoint.
@@ -39,7 +39,7 @@ spec:
               port: 8080
             periodSeconds: 5
             timeoutSeconds: 3
-            failureThreshold: 60
+            failureThreshold: 90
           readinessProbe:
             httpGet:
               path: /health

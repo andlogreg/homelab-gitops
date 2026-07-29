@@ -49,7 +49,7 @@ spec:
               port: 7575
             periodSeconds: 5
             timeoutSeconds: 3
-            failureThreshold: 36
+            failureThreshold: 90
           readinessProbe:
             httpGet:
               path: /api/health/ready

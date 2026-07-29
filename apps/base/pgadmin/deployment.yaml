@@ -45,7 +45,7 @@ spec:
               port: 80
             periodSeconds: 5
             timeoutSeconds: 3
-            failureThreshold: 24
+            failureThreshold: 90
           readinessProbe:
             httpGet:
               path: /misc/ping

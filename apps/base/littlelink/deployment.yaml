@@ -27,14 +27,16 @@ spec:
           securityContext:
             allowPrivilegeEscalation: false
           # This app exposes no health route, so / is the only honest signal - it serves the
-          # links page and nothing else. A static Node app, hence the short 60s budget.
+          # links page and nothing else. It starts in seconds, but the budget still matches
+          # its neighbours: a shared-base edit restarts everything at once, and a tight
+          # budget on a contended node gets a healthy app killed mid-start.
           startupProbe:
             httpGet:
               path: /
               port: 3000
             periodSeconds: 5
             timeoutSeconds: 3
-            failureThreshold: 12
+            failureThreshold: 90
           readinessProbe:
             httpGet:
               path: /

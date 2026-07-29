@@ -51,16 +51,18 @@ spec:
         # below. The old shape was a lenient readiness probe: it could not report Ready
         # before 60s no matter how fast the app came up, and with periodSeconds: 90 it could
         # take another 90s to notice. Worse, a start that was genuinely stuck just kept
-        # being retried. A startupProbe polls quickly, gives up after a bounded 180s, and
+        # being retried. A startupProbe polls quickly, gives up after a bounded 450s, and
         # suspends the other two probes until it passes - so a stuck start fails the rollout
-        # instead of hanging, and a fast start is reported as soon as it is true.
+        # instead of hanging, and a fast start is reported as soon as it is true. The budget
+        # is a ceiling rather than an estimate: it has to hold when a shared-base edit
+        # restarts every app on the node together.
         startupProbe:
           httpGet:
             path: /api/healthz
             port: 3000
           periodSeconds: 5
           timeoutSeconds: 5
-          failureThreshold: 36
+          failureThreshold: 90
         livenessProbe:
           failureThreshold: 3
           httpGet:

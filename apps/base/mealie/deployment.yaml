@@ -42,16 +42,22 @@ spec:
           # the port until they finish - the socket refuses connections rather than
           # answering wrongly, which is what makes an HTTP probe trustworthy here.
           #
-          # The startup budget is 5s x 60 = 300s, enough for a migration spanning several
-          # releases. It stays under the 600s default progressDeadlineSeconds on purpose:
-          # a start that is genuinely stuck must fail the rollout, not hang forever.
+          # Budget: 5s x 90 = 450s. Sized as a ceiling on how long a stuck start may hang,
+          # not as an estimate of a normal one - so it has to survive the worst case, which
+          # is every app on the cluster restarting at once. These manifests are shared by
+          # more than one cluster overlay, so a single edit here does exactly that, and on a
+          # 2-core node six simultaneous cold starts stretch each one well past its usual
+          # time. An earlier, tighter budget was exceeded that way and the container was
+          # killed mid-start, which only added another cold start to a saturated node.
+          # Still under the 600s default progressDeadlineSeconds, so a genuinely stuck start
+          # fails the rollout rather than hanging forever.
           startupProbe:
             httpGet:
               path: /api/app/about
               port: 9000
             periodSeconds: 5
             timeoutSeconds: 3
-            failureThreshold: 60
+            failureThreshold: 90
           # Tight, because startupProbe already covered the slow boot. failureThreshold 3
           # rather than 1: single replica, so a flap has nothing to fail over to.
           readinessProbe:
