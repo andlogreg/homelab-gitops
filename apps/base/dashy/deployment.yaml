@@ -4,6 +4,10 @@ metadata:
   name: dashy
 spec:
   replicas: 1
+  # Recreate rather than the default RollingUpdate: the dashboard config lives on an RWO
+  # local-path PVC and dashy rewrites it in place, so two pods should not hold it at once.
+  strategy:
+    type: Recreate
   selector:
     matchLabels:
       app: dashy
@@ -20,6 +24,24 @@ spec:
           volumeMounts:
             - name: dashy-appdata
               mountPath: /app/user-data
+          # UNVERIFIED against a running instance: this manifest is referenced by no cluster
+          # overlay, so the app is not deployed anywhere and the probe has never actually
+          # run. /healthz is the path the image's own HEALTHCHECK script requests. Confirm
+          # it before enabling this app in an overlay.
+          startupProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 24
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
       volumes:
         - name: dashy-appdata
           persistentVolumeClaim:

@@ -4,6 +4,10 @@ metadata:
   name: pgadmin
 spec:
   replicas: 1
+  # Recreate rather than the default RollingUpdate: pgadmin keeps its own SQLite config
+  # database on the RWO local-path PVC (/var/lib/pgadmin) and upgrades its schema on start.
+  strategy:
+    type: Recreate
   selector:
     matchLabels:
       app: pgadmin
@@ -32,6 +36,23 @@ spec:
             - name: servers-conf
               mountPath: /pgadmin4/servers.json
               subPath: servers.json
+          # /misc/ping returns a plain 200 ("PING"). The root path is a 302 to the login
+          # page, and httpGet treats a 3xx as success, so probing / would pass too early.
+          # Port follows PGADMIN_LISTEN_PORT above.
+          startupProbe:
+            httpGet:
+              path: /misc/ping
+              port: 80
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 24
+          readinessProbe:
+            httpGet:
+              path: /misc/ping
+              port: 80
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
       volumes:
         - name: pgadmin-data
           persistentVolumeClaim:

@@ -4,6 +4,10 @@ metadata:
   name: audiobookshelf
 spec:
   replicas: 1
+  # Recreate rather than the default RollingUpdate: audiobookshelf keeps SQLite in /config
+  # on an RWO local-path PVC, same reasoning as the other stateful apps here.
+  strategy:
+    type: Recreate
   selector:
     matchLabels:
       app: audiobookshelf
@@ -39,6 +43,25 @@ spec:
               mountPath: /config
             - name: audiobookshelf-metadata
               mountPath: /metadata
+          # UNVERIFIED against a running instance: this manifest is referenced by no cluster
+          # overlay, so the app is not deployed anywhere and the probe has never actually
+          # run. /healthcheck is taken from upstream, where it is a route returning an
+          # unconditional 200, and the port follows the PORT set in the ConfigMap. Confirm
+          # both before enabling this app in an overlay.
+          startupProbe:
+            httpGet:
+              path: /healthcheck
+              port: 3005
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 24
+          readinessProbe:
+            httpGet:
+              path: /healthcheck
+              port: 3005
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
       volumes:
         - name: audiobookshelf-audiobooks
           persistentVolumeClaim:

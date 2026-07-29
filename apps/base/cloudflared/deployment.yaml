@@ -28,13 +28,36 @@ spec:
           - --config
           - /etc/cloudflared/config/config.yaml
           - run
+        # Guards the aggressive liveness probe below, which kills the pod on a single failed
+        # check 10s after start. That was survivable while nothing waited for readiness; now
+        # that a rollout does, a tunnel that takes a moment to connect could restart-loop
+        # instead of just being slow. A startupProbe suspends liveness until it passes.
+        startupProbe:
+          httpGet:
+            path: /ready
+            port: 2000
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 12
         livenessProbe:
           httpGet:
             path: /ready
             port: 2000
           failureThreshold: 1
-          initialDelaySeconds: 10
           periodSeconds: 10
+        # Same endpoint as the liveness probe: /ready returns 200 only while the tunnel holds
+        # an active connection to Cloudflare, which is the only useful definition of ready
+        # for this workload. Adding it changes nothing about traffic - there is no Service in
+        # front of these pods, since the tunnel dials outbound - but it does make a rollout
+        # wait for a connected tunnel instead of a started process, so rollout status stops
+        # reporting success on a tunnel that is not up yet.
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: 2000
+          periodSeconds: 10
+          timeoutSeconds: 3
+          failureThreshold: 3
         volumeMounts:
         - name: config
           mountPath: /etc/cloudflared/config

@@ -5,6 +5,14 @@ metadata:
   labels:
     app: litellm
 spec:
+  # Recreate rather than the default RollingUpdate. No PVC here, but litellm migrates its
+  # schema on the shared database at startup, and a rolling update at one replica keeps the
+  # old pod serving against that schema for the whole migration. Worth naming the tradeoff
+  # being given up: the overlap has been useful once, when a bad rotated credential made the
+  # new pod fail to start and the old one carried on serving - a stuck rollout instead of an
+  # outage. A short, honest outage is the preferred failure here.
+  strategy:
+    type: Recreate
   selector:
     matchLabels:
       app: litellm
@@ -36,11 +44,22 @@ spec:
               name: litellm-config
           - secretRef:
               name: litellm-secrets
+        # Replaces initialDelaySeconds: 120 on both probes below. That delay meant every
+        # rollout took at least two minutes even when the app was serving in ten seconds,
+        # and a genuinely stuck start was retried rather than failed. The startupProbe polls
+        # every 5s, gives up after a bounded 240s, and holds the other two probes off until
+        # it passes.
+        startupProbe:
+          httpGet:
+            path: /health/readiness
+            port: 4000
+          periodSeconds: 5
+          timeoutSeconds: 10
+          failureThreshold: 48
         livenessProbe:
           httpGet:
             path: /health/liveliness
             port: 4000
-          initialDelaySeconds: 120
           periodSeconds: 30
           successThreshold: 1
           failureThreshold: 3
@@ -49,8 +68,7 @@ spec:
           httpGet:
             path: /health/readiness
             port: 4000
-          initialDelaySeconds: 120
-          periodSeconds: 30
+          periodSeconds: 10
           successThreshold: 1
           failureThreshold: 3
           timeoutSeconds: 10

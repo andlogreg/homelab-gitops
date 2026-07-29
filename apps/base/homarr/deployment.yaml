@@ -4,6 +4,11 @@ metadata:
   name: homarr
 spec:
   replicas: 1
+  # Recreate rather than the default RollingUpdate: homarr keeps SQLite on the RWO
+  # local-path PVC (/appdata/db/db.sqlite) and migrates it at startup. A rolling update at
+  # one replica would leave the old pod holding that file while the new one rewrites it.
+  strategy:
+    type: Recreate
   selector:
     matchLabels:
       app: homarr
@@ -29,6 +34,29 @@ spec:
           volumeMounts:
             - name: homarr-appdata
               mountPath: /appdata
+          # Careful: homarr's two health routes are named the opposite way round from the
+          # Kubernetes convention. /api/health/ready is the shallow one (an unconditional
+          # 200, so it means "the HTTP server is answering"); /api/health/live is the deep
+          # one that checks the database and redis and returns 500 when either is down.
+          #
+          # The shallow route is the right choice for readiness here. Gating a
+          # single-replica app's Service endpoint on a redis handshake would mean one slow
+          # check pulls the app out of service with nothing to fail over to. The deep route
+          # belongs to monitoring, which can alert without taking the app away.
+          startupProbe:
+            httpGet:
+              path: /api/health/ready
+              port: 7575
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 36
+          readinessProbe:
+            httpGet:
+              path: /api/health/ready
+              port: 7575
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
       volumes:
         - name: homarr-appdata
           persistentVolumeClaim:

@@ -4,6 +4,13 @@ metadata:
   name: ollama
 spec:
   replicas: 1
+  # Recreate is not optional here, and the reason is the GPU rather than any database. This
+  # base manifest requests nvidia.com/gpu: 1 and is used unpatched on the GPU host, which
+  # has exactly one card. A rolling update surges a second pod before retiring the first,
+  # so that pod would wait forever for a GPU that does not exist and the rollout would
+  # deadlock rather than fail. (The CPU-only overlays patch the request to 0.)
+  strategy:
+    type: Recreate
   selector:
     matchLabels:
       app: ollama
@@ -24,6 +31,25 @@ spec:
           volumeMounts:
             - name: ollama-data
               mountPath: /root/.ollama
+          # /api/version is the cheapest documented endpoint that proves the API is up. The
+          # server starts quickly - models are pulled and loaded on demand, not at boot - so
+          # 120s is ample. Note this probe cannot be verified against a running instance
+          # from either phoenix cluster: the CPU-only overlays cannot schedule this pod, and
+          # the GPU host is powered off by design.
+          startupProbe:
+            httpGet:
+              path: /api/version
+              port: 11434
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 24
+          readinessProbe:
+            httpGet:
+              path: /api/version
+              port: 11434
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
       volumes:
         - name: ollama-data
           persistentVolumeClaim:

@@ -10,6 +10,9 @@ metadata:
     secret.reloader.stakater.com/reload: "mealie-rag-config" # pragma: allowlist secret
 spec:
   replicas: 1
+  # Both Deployments in this file stay on the default RollingUpdate: they are stateless -
+  # no PVC, no local database - so the old and new pod overlapping during startup shares
+  # nothing. The apps here that keep SQLite on a PVC use Recreate instead.
   selector:
     matchLabels:
       app: mealie-rag
@@ -30,6 +33,22 @@ spec:
           ports:
             - containerPort: 7860
               name: http
+          # Gradio serves the UI at /. Its /config endpoint answers 401 behind the UI's auth,
+          # so / is the only unauthenticated signal that the app is up.
+          startupProbe:
+            httpGet:
+              path: /
+              port: 7860
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 24
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 7860
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -60,3 +79,27 @@ spec:
           ports:
             - containerPort: 8000
               name: http
+          # Probing /openapi.json, deliberately NOT the app's own /api/v1/health.
+          #
+          # That health endpoint reports on a dependency: it returns 503 when the vector
+          # collection is missing, which is a real condition it can sit in for a long time.
+          # Readiness decides whether traffic reaches the pod, and at one replica there is
+          # nothing to fail over to - so wiring it here would take the API out of its
+          # Service for a data problem and leave the UI unable to render even an error.
+          # A dependency outage belongs to monitoring, which can alert without also
+          # removing the app. /openapi.json proves the ASGI app is routing requests, which
+          # is the question readiness is actually asking.
+          startupProbe:
+            httpGet:
+              path: /openapi.json
+              port: 8000
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 24
+          readinessProbe:
+            httpGet:
+              path: /openapi.json
+              port: 8000
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3

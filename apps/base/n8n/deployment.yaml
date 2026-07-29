@@ -4,6 +4,12 @@ metadata:
   name: n8n
 spec:
   replicas: 1
+  # Recreate rather than the default RollingUpdate: the n8n database is SQLite on the RWO
+  # local-path PVC (/home/node/.n8n/database.sqlite), and a rolling update at one replica
+  # would have the old pod holding that file open while the new pod migrates it. Nothing
+  # fences an RWO local-path volume on a single node, so that overlap is unguarded.
+  strategy:
+    type: Recreate
   selector:
     matchLabels:
       app: n8n
@@ -48,6 +54,29 @@ spec:
               name: n8n-cache
             - mountPath: /home/node/.npm
               name: npm-cache
+          # Deliberately /healthz/readiness and NOT /healthz. Upstream returns an
+          # unconditional ok from /healthz - its own source comments that the main health
+          # check "should not care about DB connections" - so /healthz answers happily in
+          # the middle of a migration. /healthz/readiness returns 200 only once the
+          # database is connected AND migrated AND the app has finished starting, and 503
+          # otherwise. Only the second one can tell you the instance is usable.
+          #
+          # 5s x 60 = 300s of startup budget: a version jump here can be dozens of
+          # releases of migrations, and the container also sleeps 5s before it starts.
+          startupProbe:
+            httpGet:
+              path: /healthz/readiness
+              port: 5678
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 60
+          readinessProbe:
+            httpGet:
+              path: /healthz/readiness
+              port: 5678
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
       volumes:
         - name: n8n-claim
           persistentVolumeClaim:

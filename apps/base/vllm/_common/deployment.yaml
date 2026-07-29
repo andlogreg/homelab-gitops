@@ -4,6 +4,15 @@ metadata:
   name: vllm
 spec:
   replicas: 1
+  # Recreate for the same reason as ollama: this pod requests a GPU and the GPU host has one
+  # card, so surging a second pod would wait forever for hardware that does not exist.
+  strategy:
+    type: Recreate
+  # Raised from the 600s default because the startup budget below is longer than that, and
+  # whichever of the two is shorter is the one that actually decides the outcome. Loading a
+  # model can legitimately outlast ten minutes; the point of the probe is to bound that wait,
+  # not to have the rollout time out underneath it.
+  progressDeadlineSeconds: 1200
   selector:
     matchLabels:
       app: vllm
@@ -30,18 +39,29 @@ spec:
         volumeMounts:
         - mountPath: /root/.cache/huggingface
           name: cache-volume
+        # Replaces initialDelaySeconds: 300 on both probes. A model server is the clearest
+        # case for a startupProbe: loading weights genuinely takes minutes, but a flat delay
+        # cannot tell a slow load from a failed one. 10s x 90 gives a bounded 900s to
+        # finish, after which the rollout fails instead of hanging - see the raised
+        # progressDeadlineSeconds above, which has to exceed this budget.
+        startupProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 90
         livenessProbe:
           httpGet:
             path: /health
             port: 8000
-          initialDelaySeconds: 300
           periodSeconds: 10
         readinessProbe:
           httpGet:
             path: /health
             port: 8000
-          initialDelaySeconds: 300
-          periodSeconds: 5
+          periodSeconds: 10
+          failureThreshold: 3
       volumes:
       - name: cache-volume
         persistentVolumeClaim:

@@ -4,6 +4,11 @@ metadata:
   name: forgejo
 spec:
   replicas: 1
+  # Recreate rather than the default RollingUpdate: DB_TYPE is sqlite3, so the database is a
+  # file on an RWO local-path PVC and migrates at startup. Nothing fences that volume on a
+  # single node, so a rolling update would put two versions on the same file.
+  strategy:
+    type: Recreate
   selector:
     matchLabels:
       app: forgejo
@@ -42,21 +47,33 @@ spec:
         - containerPort: 2222
           name: ssh
           protocol: TCP
+        # A startupProbe replaces what initialDelaySeconds: 60 used to do on the two probes
+        # below. The old shape was a lenient readiness probe: it could not report Ready
+        # before 60s no matter how fast the app came up, and with periodSeconds: 90 it could
+        # take another 90s to notice. Worse, a start that was genuinely stuck just kept
+        # being retried. A startupProbe polls quickly, gives up after a bounded 180s, and
+        # suspends the other two probes until it passes - so a stuck start fails the rollout
+        # instead of hanging, and a fast start is reported as soon as it is true.
+        startupProbe:
+          httpGet:
+            path: /api/healthz
+            port: 3000
+          periodSeconds: 5
+          timeoutSeconds: 5
+          failureThreshold: 36
         livenessProbe:
           failureThreshold: 3
           httpGet:
             path: /api/healthz
             port: 3000
-          initialDelaySeconds: 60
-          periodSeconds: 90
+          periodSeconds: 30
           timeoutSeconds: 5
         readinessProbe:
           failureThreshold: 3
           httpGet:
             path: /api/healthz
             port: 3000
-          initialDelaySeconds: 60
-          periodSeconds: 90
+          periodSeconds: 10
           timeoutSeconds: 5
         volumeMounts:
         - mountPath: /var/lib/gitea

@@ -4,6 +4,14 @@ metadata:
   name: mealie
 spec:
   replicas: 1
+  # Recreate rather than the default RollingUpdate. At one replica a rolling update keeps
+  # the old pod serving for the whole of the new pod's startup - and startup is exactly
+  # when Alembic migrates the schema underneath it, so the old code would be reading a
+  # database it no longer matches. The PVC is RWO on local-path, which fences nothing on a
+  # single-node cluster, so both pods really would hold it at once. This costs a few
+  # seconds more downtime than the rolling update already caused and removes the overlap.
+  strategy:
+    type: Recreate
   selector:
     matchLabels:
       app: mealie
@@ -29,6 +37,30 @@ spec:
           volumeMounts:
             - name: mealie-data
               mountPath: /app/data/
+          # /api/app/about is what the image's own HEALTHCHECK uses, and it needs no auth.
+          # Mealie runs its migrations inside the ASGI lifespan, so uvicorn does not bind
+          # the port until they finish - the socket refuses connections rather than
+          # answering wrongly, which is what makes an HTTP probe trustworthy here.
+          #
+          # The startup budget is 5s x 60 = 300s, enough for a migration spanning several
+          # releases. It stays under the 600s default progressDeadlineSeconds on purpose:
+          # a start that is genuinely stuck must fail the rollout, not hang forever.
+          startupProbe:
+            httpGet:
+              path: /api/app/about
+              port: 9000
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 60
+          # Tight, because startupProbe already covered the slow boot. failureThreshold 3
+          # rather than 1: single replica, so a flap has nothing to fail over to.
+          readinessProbe:
+            httpGet:
+              path: /api/app/about
+              port: 9000
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
       volumes:
         - name: mealie-data
           persistentVolumeClaim:

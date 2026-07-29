@@ -4,6 +4,11 @@ metadata:
   name: open-webui
 spec:
   replicas: 1
+  # Recreate rather than the default RollingUpdate: open-webui's database is SQLite on the
+  # RWO local-path PVC (/app/backend/data/webui.db) and it migrates at startup, so a
+  # rolling update at one replica would have two versions on the same file at once.
+  strategy:
+    type: Recreate
   selector:
     matchLabels:
       app: open-webui
@@ -24,6 +29,24 @@ spec:
           volumeMounts:
             - name: webui-data
               mountPath: /app/backend/data
+          # 5s x 60 = 300s. Open WebUI's first boot after an image change can spend minutes
+          # initialising before it answers, which is precisely the window that used to be
+          # reported as Ready. /health is a plain 200 once it serves; /health/db also
+          # exists but is left to monitoring rather than used to gate the endpoint.
+          startupProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 60
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
       volumes:
         - name: webui-data
           persistentVolumeClaim:

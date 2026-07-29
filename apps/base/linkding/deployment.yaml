@@ -11,6 +11,12 @@ metadata:
     secret.reloader.stakater.com/reload: "linkding-credentials" # pragma: allowlist secret
 spec:
   replicas: 1
+  # Recreate rather than the default RollingUpdate: LD_DB_ENGINE=sqlite, so the database is
+  # a file on the RWO local-path PVC (/etc/linkding/data/db.sqlite3, plus tasks.sqlite3)
+  # and Django migrates it at startup. A rolling update at one replica would run the old
+  # pod against a schema the new pod is in the middle of changing.
+  strategy:
+    type: Recreate
   selector:
     matchLabels:
       app: linkding
@@ -32,6 +38,23 @@ spec:
           volumeMounts:
             - name: linkding-data
               mountPath: /etc/linkding/data
+          # /health, not /. The root path answers 302 (a redirect to the login page), and an
+          # httpGet probe counts any 2xx or 3xx as success - so a probe on / would pass
+          # while the app was still unusable. /health returns a plain 200 once it serves.
+          startupProbe:
+            httpGet:
+              path: /health
+              port: 9090
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 36
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 9090
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
       volumes:
         - name: linkding-data
           persistentVolumeClaim:

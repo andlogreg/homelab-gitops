@@ -4,6 +4,10 @@ metadata:
   name: littlelink
 spec:
   replicas: 1
+  # Left on the default RollingUpdate on purpose, unlike most of its neighbours here: this
+  # app is stateless - no PVC, no database, config comes from a ConfigMap - so there is no
+  # shared file for the old and new pod to fight over during the overlap. Public-facing, so
+  # the seamless swap is worth keeping.
   selector:
     matchLabels:
       app: littlelink
@@ -22,3 +26,19 @@ spec:
               name: littlelink
           securityContext:
             allowPrivilegeEscalation: false
+          # This app exposes no health route, so / is the only honest signal - it serves the
+          # links page and nothing else. A static Node app, hence the short 60s budget.
+          startupProbe:
+            httpGet:
+              path: /
+              port: 3000
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 12
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 3000
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
