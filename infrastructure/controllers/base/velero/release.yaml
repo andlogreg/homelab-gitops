@@ -21,6 +21,14 @@ spec:
     # CRDs are installed by the chart's crds/ dir on first install, so the hook
     # is redundant here. Disable it; revisit if bumping the chart needs CRD upgrades.
     upgradeCRDs: false
+    # Deliberately NO `annotations: {secret.reloader.stakater.com/reload: velero-backup-creds}`
+    # here, even though the chart's values.yaml advertises exactly that. Velero does not need it:
+    # both the server and the node-agent re-read /credentials/cloud every time they initialise the
+    # object store, which BackupStorageLocation validation does about once a minute and kopia does
+    # per PodVolumeBackup. Verified with a real storage-account key rotation: the BSL went
+    # Unavailable and recovered to Available in ~90s (that lag is kubelet refreshing the mounted
+    # secret file, not Velero), and a backup then completed - with neither pod restarting.
+    # Adding the annotation would only buy an unnecessary restart of the backup path.
     credentials:
       existingSecret: velero-backup-creds  # pragma: allowlist secret
     snapshotsEnabled: false
