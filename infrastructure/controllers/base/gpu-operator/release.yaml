@@ -7,8 +7,10 @@ spec:
   chart:
     spec:
       chart: gpu-operator
-      # v26.3.3 is the first supported major for helios's Kubernetes 1.36.
-      # Proved against the passed-through RTX 4090 in TASK-7.4 before taking it.
+      # v26.3.3 is the first supported major for helios's Kubernetes 1.36. Taken
+      # only after it was proved against the real passed-through RTX 4090 - the
+      # major had been held specifically because helios is the only consumer and
+      # was powered off, so nobody could verify it.
       version: v26.3.3
       sourceRef:
         kind: HelmRepository
@@ -25,11 +27,29 @@ spec:
         interval: 15s
         honorLabels: true
     driver:
-      # The v26 images' GSP firmware is unavailable to this passed-through
-      # RTX 4090 (TASK-7.4: RmFetchGspRmImages failed). Use the supported
-      # proprietary module with GSP disabled; 580.173.02 is NVIDIA's
-      # recommended v26.3.3 driver and retains K8s 1.36 support.
+      # RENOVATE CANNOT SEE THIS PIN. The kubernetes and flux managers read image
+      # tags and chart versions; a bare version string inside HelmRelease values is
+      # invisible to both, and a custom manager cannot help because nvcr.io rejects
+      # anonymous tag listing (401 even on /v2/). So this will not auto-update and
+      # will not appear on the Dependency Dashboard - it is a pin that looks
+      # maintained and is not, the same trap as the old kube-prometheus-stack range
+      # pin. It is COUPLED to the chart major above: re-check it by hand whenever
+      # gpu-operator is bumped (see the dependency-sweep runbook).
+      #
+      # Why pinned at all: v26.3.3's default driver image could not initialise this
+      # card - the open kernel module failed at RmFetchGspRmImages, i.e. it could not
+      # load the Ada GSP firmware. Ruled out first, so this is not a repeat of the
+      # 6-2 trap: the guest ROM BAR was present (~512 KiB at
+      # /sys/bus/pci/devices/0000:01:00.0/rom) and the hypervisor showed rombar=1, so
+      # the card's VBIOS was reachable and the fault was inside the driver image, not
+      # the passthrough. 580.173.02 is NVIDIA's recommended driver for v26.3.3 and
+      # keeps the operator on a K8s-1.36-supported release.
       version: "580.173.02"
+      # Consequence of the above: the proprietary module, with GSP firmware disabled
+      # in kernel-module-params. This is off NVIDIA's preferred path for Ada (they
+      # favour the open module with GSP on) and is a workaround, not a fix - if a
+      # later driver loads GSP cleanly here, drop both this and the
+      # NVreg_EnableGpuFirmware=0 override rather than carrying them forward.
       kernelModuleType: proprietary
       # kernel module configuration for NVIDIA driver
       kernelModuleConfig:

@@ -1,6 +1,14 @@
+---
 # Helios is a deliberately-off lab. Alertmanager cannot send while the peaker is
 # down, so a dead-man's switch would create noise rather than useful signal.
 # Route only actionable workload outcomes to the dedicated lab Telegram chat.
+#
+# The shape is deliberately INVERTED from production's. Production uses a severity
+# deny-list because an alert there means the household is affected. Here the
+# question is "did my long-running job die while I was not watching", so the root
+# route drops everything and only the alertnames listed below get out.
+# KubeNodeNotReady / TargetDown / KubeCPUOvercommit are expected states on a
+# sandbox, not incidents - do not add them.
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
 metadata:
@@ -9,22 +17,35 @@ spec:
   values:
     prometheus:
       prometheusSpec:
+        # Every notification says which cluster it came from.
         externalLabels:
           cluster: helios
     alertmanager:
       alertmanagerSpec:
+        # Mounted at /etc/alertmanager/secrets/alertmanager-telegram/<key>.
+        # NOTE the Secret is created by an ExternalSecret in the monitoring CONFIGS
+        # layer, which reconciles after this one - so on a from-scratch bootstrap the
+        # Alertmanager pod sits in ContainerCreating until ESO syncs it. That is
+        # expected and self-heals on the kubelet's mount retry; it is not a fault to
+        # debug. (Same behaviour as production.)
         secrets:
           - alertmanager-telegram
       config:
         global:
           resolve_timeout: 5m
+        templates:
+          - /etc/alertmanager/config/*.tmpl
         route:
           group_by: ['alertname', 'namespace']
-          # Absorb normal boot transients before informing the lab chat.
+          # Long enough to absorb boot transients: helios cold boots by design, and
+          # most kube rules' `for: 15m` already means a cluster that settles inside
+          # 15 minutes never fires at all.
           group_wait: 5m
           group_interval: 5m
           repeat_interval: 24h
           receiver: 'null'
+          # THE ALLOW-LIST. Everything not named here stays visible in the UI and
+          # never notifies. Add by name, one route each, like production.
           routes:
             - receiver: telegram
               matchers:
@@ -42,10 +63,54 @@ spec:
               matchers:
                 - alertname = "NvidiaGpuXidError"
               repeat_interval: 24h
+            - receiver: telegram
+              matchers:
+                - alertname = "NvidiaGpuTemperatureHigh"
+              repeat_interval: 24h
+            - receiver: telegram
+              matchers:
+                - alertname = "NvidiaGpuNotAllocatable"
+              repeat_interval: 24h
         receivers:
           - name: 'null'
           - name: telegram
             telegram_configs:
+              # Same bot token as production, a DIFFERENT chat id - both read from the
+              # helios vault via ESO. That is what lets the lab be muted without muting
+              # the household, and it means this Alertmanager structurally cannot reach
+              # the household chat.
               - bot_token_file: /etc/alertmanager/secrets/alertmanager-telegram/bot-token
                 chat_id_file: /etc/alertmanager/secrets/alertmanager-telegram/chat-id
+                message: '{{ template "telegram.homelab.message" . }}'
                 send_resolved: true
+      # Kept byte-identical to production's template on purpose, so a lab alert and a
+      # household alert read the same way. If you change one, change both.
+      templateFiles:
+        telegram.tmpl: |-
+          {{/* Do NOT escape interpolated values here. Telegram messages are sent
+               with parse_mode HTML, and for HTML Alertmanager renders this
+               template with html/template, which already escapes anything that
+               came from an alert. Escaping by hand double-escapes it and the
+               reader sees literal &lt; and &amp;. Markup written in the template
+               itself, like <b> below, is still treated as markup. */}}
+          {{ define "telegram.homelab.message" }}
+          {{- if eq .Status "firing" }}🔥 FIRING{{ else }}✅ RESOLVED{{ end }} — {{ if .CommonLabels.cluster }}{{ .CommonLabels.cluster }}{{ else }}homelab{{ end }}
+          {{ range .Alerts }}
+          <b>{{ .Labels.alertname }}</b> [{{ .Labels.severity }}]
+          {{- with .Annotations.summary }}
+          {{ . }}
+          {{- end }}
+          {{- with .Annotations.description }}
+          {{ . }}
+          {{- end }}
+          {{- with .Labels.namespace }}
+          namespace: {{ . }}
+          {{- end }}
+          {{- with .Labels.instance }}
+          instance: {{ . }}
+          {{- end }}
+          {{- with .Annotations.runbook_url }}
+          runbook: {{ . }}
+          {{- end }}
+          {{ end }}
+          {{- end }}

@@ -1,6 +1,12 @@
 ---
-# DCGM exposes the current NVIDIA Xid error as a gauge. Unlike utilization or
-# capacity, a non-zero Xid is a hardware/driver fault worth seeing after a lab job.
+# GPU health for the lab cluster. These are the alerts the lab Telegram route is
+# allowed to send, so each one has to describe a state worth interrupting for on a
+# machine that is powered off most of the time.
+#
+# All three read metrics that are already scraped: DCGM_FI_DEV_* come from the
+# gpu-operator's dcgm-exporter (enabled by default in its counter set, and its
+# ServiceMonitor is on in the chart values), kube_node_status_allocatable from
+# kube-state-metrics.
 apiVersion: monitoring.coreos.com/v1
 kind: PrometheusRule
 metadata:
@@ -9,11 +15,61 @@ spec:
   groups:
     - name: gpu-health
       rules:
+        # DCGM_FI_DEV_XID_ERRORS is "value of the LAST Xid encountered" - a latched
+        # gauge, not a counter. A bare `> 0` therefore never resolves: one Xid, ever,
+        # and this alert fires forever (until the exporter pod restarts and the gauge
+        # returns to 0). On a channel whose entire purpose is staying quiet, that is
+        # the permanently-firing alert the whole allow-list exists to avoid.
+        #
+        # So alert on the value CHANGING instead, which makes it event-shaped: true
+        # for 15 minutes after a new Xid, then resolved. The trailing `and > 0`
+        # discards the change that happens when the exporter restarts and the gauge
+        # drops back to 0 - a reset is not a fault.
+        #
+        # dcgm-exporter does ship proper event metrics (DCGM_EXP_XID_ERRORS_COUNT /
+        # _TOTAL) which would express this directly, but both are commented out in
+        # its default counter set and enabling them means overriding that ConfigMap.
+        # Not worth it for one rule; revisit if more Xid detail is ever wanted.
         - alert: NvidiaGpuXidError
-          expr: 'DCGM_FI_DEV_XID_ERRORS > 0'
+          expr: 'changes(DCGM_FI_DEV_XID_ERRORS[15m]) > 0 and DCGM_FI_DEV_XID_ERRORS > 0'
           for: 5m
           labels:
             severity: critical
           annotations:
             summary: "NVIDIA Xid error on {{ $labels.Hostname }} GPU {{ $labels.gpu }}"
             description: "DCGM reports NVIDIA Xid error {{ $value }}. Inspect the GPU Operator, driver, and host PCIe path."
+
+        # The 4090 throttles in the mid-80s. Sustained operation above that is a
+        # cooling problem in a closed case, not a busy job.
+        - alert: NvidiaGpuTemperatureHigh
+          expr: 'DCGM_FI_DEV_GPU_TEMP > 85'
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: "GPU above 85C for 10m on {{ $labels.Hostname }} GPU {{ $labels.gpu }}"
+            description: "DCGM reports {{ $value }}C. Check case airflow and the host fan curve before blaming the workload."
+
+        # The card is present on the PCI bus but the cluster cannot schedule onto it.
+        # This is the shape of the failure 6-2 nearly shipped: with rombar=0 the guest
+        # has no ROM BAR, `lspci` still shows the card perfectly, and the driver simply
+        # cannot initialise it - so everything looks healthy one layer up while
+        # nvidia.com/gpu quietly never appears. Nothing else here would catch that.
+        #
+        # `for: 20m` because on a cold boot the gpu-operator legitimately takes several
+        # minutes to install the driver and register the device plugin, and helios cold
+        # boots by design. This must not fire on every power-on.
+        - alert: NvidiaGpuNotAllocatable
+          expr: |
+            kube_node_status_allocatable{resource="nvidia_com_gpu"} == 0
+            or absent(kube_node_status_allocatable{resource="nvidia_com_gpu"})
+          for: 20m
+          labels:
+            severity: critical
+          annotations:
+            summary: "No allocatable nvidia.com/gpu on the helios node"
+            description: >-
+              The GPU is not schedulable 20m after boot. Check the ROM BAR first
+              (/sys/bus/pci/devices/0000:01:00.0/rom must exist in the guest, and
+              `qm config 330` must show rombar=1), then the gpu-operator driver and
+              device-plugin pods.

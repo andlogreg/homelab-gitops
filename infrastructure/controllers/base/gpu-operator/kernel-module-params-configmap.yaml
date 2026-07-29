@@ -3,6 +3,14 @@ kind: ConfigMap
 metadata:
   name: kernel-module-params
 data:
+  # NVreg_EnableGpuFirmware=0 disables the GSP firmware path. It is paired with
+  # driver.kernelModuleType=proprietary in release.yaml and exists for one reason:
+  # the v26 driver images could not load Ada GSP firmware on the passed-through
+  # RTX 4090 (RmFetchGspRmImages), with the ROM BAR verified present so the fault
+  # was in the driver image rather than the passthrough. Both settings are a
+  # workaround off NVIDIA's preferred path - drop them together if a later driver
+  # loads GSP cleanly. Only helios consumes this base, so the blast radius is the
+  # lab cluster.
   nvidia.conf: |
     NVreg_PreserveVideoMemoryAllocations=1
     NVreg_EnableS0ixPowerManagement=1

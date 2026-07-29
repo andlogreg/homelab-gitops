@@ -5,10 +5,12 @@ resources:
   - ../../base/open-webui
   - ingress.yaml
 
-
-configMapGenerator:
-  - name: open-webui-config
-    behavior: merge
-    literals:
-      - OPENAI_API_BASE_URL=http://vllm.helios.andlogreg.work/v1
-      - OPENAI_API_KEY=Gjui9F5S2H # pragma: allowlist secret
+# The OpenAI-compatible endpoint that used to be configured here pointed at vllm on
+# the helios cluster. vllm is deliberately NOT deployed there - it reserves ~90% of
+# the single 4090's memory, which would starve the ollama that cluster actually
+# serves - so that hostname resolves to helios's ingress and returns a 404 for a
+# route that will never exist. Removed rather than left dangling: open-webui now
+# falls back to OLLAMA_BASE_URL from the base overlay.
+#
+# If vllm is ever revisited, this is one of the two consumers to re-point (the other
+# is the "embed" model in apps/production/litellm/config.yaml).

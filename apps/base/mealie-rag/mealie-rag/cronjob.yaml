@@ -3,10 +3,17 @@ kind: CronJob
 metadata:
   name: mealie-rag-ingest
   annotations:
-    # Accepted degradation (TASK-7 / Phase 6): the production LiteLLM embedding
-    # route reaches Ollama on the normally-off helios peaker. This nightly,
-    # non-household-critical re-index may fail while golias is powered down.
-    homelab.andlogreg.work/accepted-degradation: "helios peaker may be powered off"
+    # ACCEPTED DEGRADATION - do not investigate this as a bug when you find it red.
+    # The dependency is indirect, which is why grepping these manifests for a helios
+    # URL finds nothing: this job calls production LiteLLM's "embed" model, which is
+    # routed (in apps/production/litellm/config.yaml) to Ollama on the helios
+    # cluster. That cluster runs on the peaker host, which is powered off by design.
+    #
+    # Two separate reasons it can fail, both known and accepted: the peaker is off,
+    # and even when it is on the embedding model itself is not resident - helios
+    # ollama models are pulled by hand and live only on a local PVC, so a rebuilt
+    # cluster comes back empty. A nightly recipe re-index is not household-critical.
+    homelab.andlogreg.work/accepted-degradation: "helios peaker off, and embed model not resident"
 spec:
   schedule: "0 2 * * *"
   concurrencyPolicy: Forbid
