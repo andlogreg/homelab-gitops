@@ -9,7 +9,13 @@ spec:
       storageAccount:
         name: cnpg-backup-creds
         key: storage-account-name
-      storageSasToken:
+      # storage-account-key is the storage ACCOUNT KEY, not a shared-access signature: it never
+      # expires and carries read/write/delete over every container in the account. It belongs in
+      # storageKey. storageSasToken would also work - barman hands either env var to the Azure SDK
+      # as the same `credential` argument - but naming it that way makes the manifest claim a
+      # scoped, time-limited credential is in use, which is exactly the wrong conclusion for
+      # anyone auditing or planning a change here.
+      storageKey:
         name: cnpg-backup-creds
         key: storage-account-key
     wal:

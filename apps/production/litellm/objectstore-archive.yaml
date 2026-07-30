@@ -13,7 +13,9 @@ spec:
       storageAccount:
         name: cnpg-backup-creds
         key: storage-account-name
-      storageSasToken:
+      # A full-control, non-expiring storage account key - not a shared-access signature.
+      # See the live objectstore in the base layer for why the field name matters.
+      storageKey:
         name: cnpg-backup-creds
         key: storage-account-key
     wal:
