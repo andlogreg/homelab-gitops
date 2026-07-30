@@ -3,35 +3,49 @@ kind: ConfigMap
 metadata:
   name: kernel-module-params
 data:
-  # These three parameters were originally set TOGETHER as a power-management tuning
-  # exercise on the RTX 4090, which took measured idle draw from ~25-30 W to ~9 W.
-  # NVreg_EnableGpuFirmware was 1 in that work, chosen deliberately, on the reasoning
-  # that GSP handles power management on-die.
+  # Idle-power tuning for the RTX 4090, now measured rather than assumed.
   #
-  # It is now 0, which REVERSES that choice. Be aware of what that does and does not
-  # mean before touching it:
+  # Method: 10-minute windows, nvidia-smi power.draw sampled every 5 s, GPU workloads
+  # scaled to zero, card at P8 / 210 MHz / 1 MiB VRAM / 36-40 C in every window.
+  # Corroborated independently by DCGM_FI_DEV_POWER_USAGE in Prometheus and by a
+  # wall-socket meter on the host. Results:
   #
-  #   - GSP is the driver DEFAULT for Turing and later, so the original `=1` only
-  #     re-asserted the default. Flipping it to 0 is therefore not a symmetric edit:
-  #     it actively opts out of the default path, where `=1` opted into nothing.
-  #   - The open kernel modules REQUIRE GSP and cannot load without it, so
-  #     `=0` is what forces driver.kernelModuleType=proprietary in release.yaml. The
-  #     two settings are one decision, not two.
-  #   - Whether idle draw actually regressed is UNMEASURED. The likeliest reading is
-  #     that most of the saving came from the other two parameters, but that is a
-  #     hypothesis, and NVIDIA's docs make no claim either way. One command settles
-  #     it: `nvidia-smi --query-gpu=power.draw --format=csv` on an idle GPU.
+  #   module        GSP  Preserve  S0ix    GPU idle   at the wall
+  #   proprietary    1      1        0      12.5 W      128.9 W   <- this config
+  #   proprietary    1      1        1      13.9 W      128.2 W
+  #   proprietary    1      0        1      25.1 W      144.5 W
+  #   proprietary    1      0        0      26.0 W      143.9 W   (driver defaults)
+  #   proprietary    0      1        1      26.5 W      142.7 W
+  #   open           1      1        1      26.5 W      143.3 W
   #
-  # Why it was flipped at all: the v26 driver images could not load Ada GSP firmware
-  # (RmFetchGspRmImages). The ROM BAR was verified present, so the fault was not the
-  # passthrough - but that only rules out one cause. NVIDIA documents this error
-  # shape as a driver-container firmware-MOUNT problem (the container cannot reach
-  # /lib/firmware and the firmware_class search path), which would make the current
-  # state a symptom fix. That is being investigated; if it resolves, restore
-  # NVreg_EnableGpuFirmware=1 and the open module together and re-measure idle draw.
+  # Two things worth carrying away:
+  #
+  #   - Low idle is a three-way AND: proprietary module AND GSP AND
+  #     PreserveVideoMemoryAllocations. Remove any single one and it returns to
+  #     ~25-26.5 W. That is why these are set together and must be changed together.
+  #   - NVreg_EnableS0ixPowerManagement used to be set here and has been REMOVED. It
+  #     governs s2idle system suspend, which this always-running server VM never
+  #     performs, and the measurement found no benefit (13.9 W with it, 12.5 W without).
+  #     It was doing nothing.
+  #
+  # The open kernel module is NOT a drop-in here: it loads GSP correctly and passes a
+  # GPU smoke test, but idles at 26.5 W - it never reaches the low-power state. See the
+  # note on driver.kernelModuleType in release.yaml for that trade-off.
+  #
+  # WARNING - editing this file alone does NOT change anything on the node. The driver
+  # container reloads the kernel module only when the operator-computed
+  # DRIVER_CONFIG_DIGEST differs from /run/nvidia/nvidia-driver.state. That digest is
+  # derived from the ClusterPolicy driver spec, NOT from the contents of this ConfigMap,
+  # so a params-only edit is silently ignored and the container logs "The NVIDIA driver
+  # is already loaded with the desired configuration, performing userspace-only install".
+  # To apply a change here without also changing the driver spec:
+  #     sudo rm -f /run/nvidia/nvidia-driver.state          # on the node
+  #     kubectl rollout restart ds/nvidia-driver-daemonset -n gpu-operator
+  # Then VERIFY against /proc/driver/nvidia/params inside the driver container - never
+  # against this ConfigMap, which proves only what was requested, not what is in force.
+  # A cold boot loads the module fresh, so these values are always in force after one.
   #
   # Only helios consumes this base, so the blast radius is the lab cluster.
   nvidia.conf: |
     NVreg_PreserveVideoMemoryAllocations=1
-    NVreg_EnableS0ixPowerManagement=1
-    NVreg_EnableGpuFirmware=0
+    NVreg_EnableGpuFirmware=1
