@@ -34,12 +34,24 @@ module "storage" {
   # Common backup targets
   containers = ["cnpg-backups", "velero-backups"]
 
+  # Data protection. Container soft-delete is the one that closes the total-loss case: it is the
+  # only setting of the three that a holder of the storage account key cannot switch off, and
+  # deleting a container is what destroys soft-deleted blobs. Versioning covers the variant
+  # soft-delete misses -- blobs OVERWRITTEN rather than deleted -- and is safe to enable here
+  # because lifecycle_management below prunes the versions.
+  blob_properties = {
+    versioning_enabled                     = true
+    delete_retention_policy_days           = 7
+    container_delete_retention_policy_days = 30
+  }
+
   # Backup cleanup: delete the frozen archives after 30d, and sweep the live backup containers
   # 30d after last write (> the in-cluster Velero 20d TTL + CNPG 14d retention).
   lifecycle_management = {
     enabled                        = true
     archive_retention_days         = 30
     cold_generation_retention_days = 30
+    version_retention_days         = 30
   }
 
   tags = {

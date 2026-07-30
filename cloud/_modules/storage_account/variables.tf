@@ -56,14 +56,30 @@ variable "network_rules" {
 }
 
 variable "blob_properties" {
-  description = "Blob properties for the storage account."
+  description = <<-EOT
+    Blob-level data protection for the storage account.
+
+    container_delete_retention_policy_days is the load-bearing one. Blob soft-delete and versioning
+    are both reachable through the data-plane Set Blob Service Properties API, which accepts Shared
+    Key auth — so anyone holding the storage account key can switch them off. Container soft-delete
+    is ARM-only and they cannot. That asymmetry is the point: deleting a container also destroys the
+    soft-deleted blobs inside it, so without this setting a single container delete takes every
+    backup with it and leaves nothing to restore. Self-bounding (Azure purges the deleted container
+    after this many days), so it needs no lifecycle rule and is safe to leave on everywhere.
+
+    versioning_enabled covers the case soft-delete does not: a blob OVERWRITTEN rather than deleted.
+    Only turn it on where lifecycle_management is also enabled — versions are pruned by its
+    version_retention_days rule, and without that they accumulate forever.
+  EOT
   type = object({
-    versioning_enabled           = bool
-    delete_retention_policy_days = number
+    versioning_enabled                     = bool
+    delete_retention_policy_days           = number
+    container_delete_retention_policy_days = number
   })
   default = {
-    versioning_enabled           = false
-    delete_retention_policy_days = 7
+    versioning_enabled                     = false
+    delete_retention_policy_days           = 7
+    container_delete_retention_policy_days = 30
   }
 }
 
@@ -76,16 +92,22 @@ variable "lifecycle_management" {
     (a rebuilt cluster writes under a fresh prefix/serverName, so the old one goes cold) and
     also bounds how long backups survive after a total cluster loss, so set it above the
     in-cluster Velero TTL (20d) and CNPG retention (14d). enabled = false disables the policy.
+
+    version_retention_days prunes non-current blob versions in both rules. It only does anything
+    when blob_properties.versioning_enabled is true, and it is the reason versioning must not be
+    enabled without this policy: nothing else deletes a version.
   EOT
   type = object({
     enabled                        = bool
     archive_retention_days         = number
     cold_generation_retention_days = number
+    version_retention_days         = number
   })
   default = {
     enabled                        = false
     archive_retention_days         = 30
     cold_generation_retention_days = 30
+    version_retention_days         = 30
   }
 }
 

@@ -28,6 +28,13 @@ resource "azurerm_storage_account" "storage" {
     delete_retention_policy {
       days = var.blob_properties.delete_retention_policy_days
     }
+
+    # The only data-protection setting here that a holder of the account key cannot turn off --
+    # see the variable description. Without it, deleting a container permanently destroys the
+    # soft-deleted blobs inside it.
+    container_delete_retention_policy {
+      days = var.blob_properties.container_delete_retention_policy_days
+    }
   }
 
 }
@@ -59,6 +66,10 @@ resource "azurerm_storage_management_policy" "backup_lifecycle" {
       base_blob {
         delete_after_days_since_modification_greater_than = var.lifecycle_management.archive_retention_days
       }
+      # No-op unless versioning is enabled. Nothing else ever deletes a non-current version.
+      version {
+        delete_after_days_since_creation = var.lifecycle_management.version_retention_days
+      }
     }
   }
 
@@ -75,6 +86,10 @@ resource "azurerm_storage_management_policy" "backup_lifecycle" {
     actions {
       base_blob {
         delete_after_days_since_modification_greater_than = var.lifecycle_management.cold_generation_retention_days
+      }
+      # No-op unless versioning is enabled. Nothing else ever deletes a non-current version.
+      version {
+        delete_after_days_since_creation = var.lifecycle_management.version_retention_days
       }
     }
   }
