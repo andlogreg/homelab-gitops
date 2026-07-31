@@ -4,6 +4,10 @@ terraform {
       source  = "hashicorp/azurerm"
       version = ">= 3.0"
     }
+    azuread = {
+      source  = "hashicorp/azuread"
+      version = ">= 3.0"
+    }
   }
   backend "azurerm" {
     key              = "homelab/cloud/staging/storage/terraform.tfstate"
@@ -14,6 +18,8 @@ terraform {
 provider "azurerm" {
   features {}
 }
+
+provider "azuread" {}
 
 variable "storage_account_name" {
   description = "The name of the storage account. Must be globally unique."
