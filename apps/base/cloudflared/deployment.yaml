@@ -28,6 +28,16 @@ spec:
           - --config
           - /etc/cloudflared/config/config.yaml
           - run
+        # cloudflared already binds this port - it is the server the probes below
+        # hit, and it serves /metrics as well as /ready. Declaring it changes no
+        # runtime behaviour, but a PodMonitor cannot select a port that is not
+        # declared: the generated relabel rule keys on the pod's container port
+        # number, so with no ports block it matches nothing and produces no target
+        # at all. That failure is invisible - the PodMonitor exists and looks fine.
+        ports:
+          - name: metrics
+            containerPort: 2000
+            protocol: TCP
         # Guards the aggressive liveness probe below, which kills the pod on a single failed
         # check 10s after start. That was survivable while nothing waited for readiness; now
         # that a rollout does, a tunnel that takes a moment to connect could restart-loop

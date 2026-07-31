@@ -18,6 +18,10 @@ spec:
     metadata:
       labels:
         pod: cloudflared
+        # Additive, so spec.selector (immutable, and matching `pod`) is untouched.
+        # This exists purely so one PodMonitor can select both cloudflared
+        # deployments; this one predates the `app` convention the other uses.
+        app: cloudflared
     spec:
       # securityContext:
       #   sysctls:
@@ -39,6 +43,12 @@ spec:
             - --config
             - /etc/cloudflared/config/config.yaml
             - run
+          # See the note in apps/base/cloudflared/deployment.yaml: already bound,
+          # declared so a PodMonitor has a container port to select.
+          ports:
+            - name: metrics
+              containerPort: 2000
+              protocol: TCP
           # Guards the aggressive liveness probe below, which kills the pod on a single
           # failed check. Now that a rollout waits for readiness, a tunnel that is slow to
           # connect could restart-loop rather than just be slow; a startupProbe suspends
