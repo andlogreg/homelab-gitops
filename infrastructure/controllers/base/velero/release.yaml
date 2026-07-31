@@ -48,7 +48,23 @@ spec:
           config:
             storageAccount: "${STORAGE_ACCOUNT_NAME}"
             storageAccountURI: "https://${STORAGE_ACCOUNT_NAME}.blob.core.windows.net"
-            storageAccountKeyEnvVar: "AZURE_STORAGE_ACCOUNT_ACCESS_KEY"  # pragma: allowlist secret
+            # Authenticate with the container-scoped Entra identity in velero-backup-creds, not a
+            # storage account key. There is deliberately NO storageAccountKeyEnvVar: Velero prefers
+            # it when present, so leaving one would silently keep the key in use.
+            #
+            # Quoted because BackupStorageLocation.spec.config is map[string]string and an unquoted
+            # true is a YAML boolean the API server rejects. For the same reason this must not
+            # become a Flux postBuild variable: substitution rewrites already-serialised YAML,
+            # after kustomize has dropped the quotes, and the boolean comes back.
+            #
+            # Do not remove useAAD without also restoring a key env var. With neither set, Velero
+            # exchanges the Entra credential for the account key over ARM listKeys -- the same key
+            # this replaced, plus an ARM permission. The identity holds no ARM role, so that path
+            # fails rather than quietly working, but it is still a broken backup path.
+            #
+            # A cluster adopting this needs its own identity provisioned in cloud/<env>/storage.
+            # dev has none yet, so dev's Velero will not authenticate until it is rebuilt.
+            useAAD: "true"
     initContainers:
       - name: velero-plugin-for-microsoft-azure
         image: velero/velero-plugin-for-microsoft-azure:v1.13.0

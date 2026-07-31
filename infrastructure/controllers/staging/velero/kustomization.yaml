@@ -3,8 +3,3 @@ kind: Kustomization
 namespace: velero
 resources:
   - ../../base/velero
-patches:
-  - path: aad-credential-patch.yaml
-    target:
-      kind: HelmRelease
-      name: velero
