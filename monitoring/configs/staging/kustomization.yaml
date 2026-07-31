@@ -3,3 +3,9 @@ kind: Kustomization
 namespace: monitoring
 resources:
   - podmonitor-reloader.yaml
+  # Staging runs the same Velero schedule and the same two CNPG clusters, so it gets
+  # the same backup rules. Nothing here notifies - staging is UI-only by design - but
+  # that is a ROUTING decision, and the rules still have to exist for staging to be a
+  # faithful rehearsal. It earned its keep immediately: staging's CNPG schedules were
+  # dead in exactly the same way production's were, and neither was visible anywhere.
+  - prometheusrule-backups.yaml

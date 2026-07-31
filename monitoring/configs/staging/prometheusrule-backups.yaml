@@ -1,0 +1,139 @@
+---
+# Backup failure and staleness. Before this existed, a backup that silently stopped
+# working was invisible until someone looked by hand - and one had been: CNPG
+# scheduled backups were dead for 5.7 days on two clusters before anyone noticed.
+#
+# THE GOVERNING IDEA: alert on FRESHNESS, not on last-known-outcome. Every
+# outcome-shaped signal available here reported healthy throughout that outage,
+# because they all describe the last backup that RAN rather than whether one ran
+# RECENTLY. "The last backup succeeded" is true and useless if it was six days ago.
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: backups
+  namespace: monitoring
+spec:
+  groups:
+    - name: velero-backups
+      rules:
+        # The four Velero rules below are transcribed from the Velero chart's own
+        # metrics.prometheusRule reference block, which ships commented out with
+        # `spec: []`. Enabling the chart's flag installs an EMPTY PrometheusRule that
+        # looks like coverage, so the rules live here instead, next to the CNPG half.
+        #
+        # schedule!="" everywhere is load-bearing: ad-hoc backups (a pre-upgrade
+        # snapshot, say) carry an empty schedule label and are one-shot by nature.
+        # Without the filter, every manual backup becomes a permanent "stale backup"
+        # alert the moment it ages past the threshold.
+        - alert: VeleroBackupFailed
+          expr: 'velero_backup_last_status{schedule!=""} != 1'
+          for: 15m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Velero backup {{ $labels.schedule }} failed"
+            description: "The most recent Velero backup for schedule {{ $labels.schedule }} did not succeed. One failure is not yet an emergency - the schedule runs again - but if it is still failing in 12h VeleroBackupFailing escalates this to a page."
+        - alert: VeleroBackupFailing
+          expr: 'velero_backup_last_status{schedule!=""} != 1'
+          for: 12h
+          labels:
+            severity: critical
+          annotations:
+            summary: "Velero backup {{ $labels.schedule }} has been failing for 12h"
+            description: "Velero schedule {{ $labels.schedule }} has not produced a successful backup for 12 hours. App state is accumulating with no off-cluster copy."
+        # 25h on a daily schedule: one missed run plus an hour of slack, so a backup
+        # that merely starts late does not page.
+        - alert: VeleroNoNewBackup
+          expr: |-
+            (
+              (time() - velero_backup_last_successful_timestamp{schedule!=""}) >bool (25 * 3600)
+              or
+              absent(velero_backup_last_successful_timestamp{schedule!=""})
+            ) == 1
+          for: 1h
+          labels:
+            severity: critical
+          annotations:
+            summary: "No successful Velero backup for schedule {{ $labels.schedule }} in 25h"
+            description: "Velero has not completed a successful backup for {{ $labels.schedule }} within 25 hours. Check the schedule, the BackupStorageLocation and the node-agent."
+        # The absent() arm is safe here, and that was MEASURED rather than assumed: a
+        # restarted Velero rehydrates last_successful_timestamp and last_status from
+        # the existing Backup CRs, so a pod restart does not look like a missing
+        # backup. (Its COUNTERS do not survive - see VeleroBackupCapturedNothing.)
+        - alert: VeleroBackupStorageUnavailable
+          expr: "velero_backup_location_status_gauge == 0"
+          for: 30m
+          labels:
+            severity: critical
+          annotations:
+            summary: "Velero BackupStorageLocation {{ $labels.backup_location_name }} is unavailable"
+            description: "Velero cannot reach its object store, so no backup can be written. 30m of tolerance is deliberate: the BSL legitimately goes Unavailable for ~90s during a credential rotation while kubelet refreshes the mounted secret."
+        # A backup that "succeeds" having captured nothing is the zero-byte case, and
+        # it is indistinguishable from a healthy one in every status field.
+        #
+        # The success_total guard is NOT optional. velero_backup_items_total is reset
+        # to 0 by a Velero restart, unlike the two last_* gauges above - measured, not
+        # guessed. A bare `== 0` would therefore page after every restart and every
+        # chart upgrade. Requiring a backup to have actually completed since the
+        # process started makes the zero meaningful.
+        - alert: VeleroBackupCapturedNothing
+          expr: 'velero_backup_items_total{schedule!=""} == 0 and velero_backup_success_total{schedule!=""} > 0'
+          for: 15m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Velero backup {{ $labels.schedule }} completed but captured 0 items"
+            description: "A backup for schedule {{ $labels.schedule }} succeeded while backing up nothing. Usually a namespace/resource selector that no longer matches anything, or a renamed namespace."
+
+    - name: cnpg-backups
+      rules:
+        # Adopted from CloudNativePG's own sample PrometheusRule (their
+        # LastFailedArchiveTime). These come from Postgres itself rather than from the
+        # operator, which is why - unlike the cnpg_collector_* backup gauges - they
+        # survived the move to the barman-cloud plugin and are actually populated.
+        #
+        # last_failed_time is -1 when archiving has never failed, so the subtraction
+        # is comfortably negative in the healthy case rather than needing a guard.
+        - alert: CnpgWalArchivingFailing
+          expr: "(cnpg_pg_stat_archiver_last_failed_time - cnpg_pg_stat_archiver_last_archived_time) > 1"
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: "CNPG WAL archiving is failing on {{ $labels.namespace }}"
+            description: "The most recent WAL archive attempt failed more recently than the last success. Point-in-time recovery is degrading from now: base backups alone cannot recover to a point after the last archived WAL."
+        # THE rule this whole task exists for. status.lastScheduleTime is the only
+        # honest answer to "did the scheduler actually fire", and it is what sat frozen
+        # for 5.7 days while ContinuousArchiving and LastBackupSucceeded both read True.
+        #
+        # 26h covers the daily schedules (03:00 and 04:00) plus slack. Metric comes
+        # from kube-state-metrics custom-resource-state, not from CNPG.
+        - alert: CnpgNoRecentScheduledBackup
+          expr: "(time() - cnpg_scheduledbackup_last_schedule_time) > (26 * 3600)"
+          for: 1h
+          labels:
+            severity: critical
+          annotations:
+            summary: "CNPG schedule {{ $labels.namespace }}/{{ $labels.name }} has not run in over 26h"
+            description: "The CNPG ScheduledBackup for cluster {{ $labels.cluster }} last scheduled a backup more than 26 hours ago. The Cluster conditions will very likely still read healthy - check for Backup CRs stuck in `pending`, which block the controller outright."
+        - alert: CnpgBackupFailed
+          expr: 'cnpg_backup_phase{phase="failed"} == 1'
+          for: 15m
+          labels:
+            severity: critical
+          annotations:
+            summary: "CNPG backup {{ $labels.namespace }}/{{ $labels.name }} failed"
+            description: "A CNPG Backup ended in phase `failed` for cluster {{ $labels.cluster }}. Note that CnpgNoRecentScheduledBackup will NOT catch this case - the schedule fired correctly, the backup itself failed."
+        # Diagnostic rather than a page: this is the CAUSE of the staleness above, and
+        # CnpgNoRecentScheduledBackup is the alert that says the outcome is bad. A
+        # genuinely in-flight backup clears in well under 2h; one that does not is
+        # wedged, and the operator refuses to start any new scheduled backup while it
+        # is outstanding. That is not a harmless transient - it is the failure mode.
+        - alert: CnpgBackupStuckPending
+          expr: 'cnpg_backup_phase{phase="pending"} == 1'
+          for: 2h
+          labels:
+            severity: warning
+          annotations:
+            summary: "CNPG backup {{ $labels.namespace }}/{{ $labels.name }} stuck pending"
+            description: "A CNPG Backup has been in `pending` for over 2 hours. While one is outstanding the ScheduledBackup controller will not start another, so this silently stops all scheduled backups for cluster {{ $labels.cluster }}. Deleting the stale Backup CR releases it."

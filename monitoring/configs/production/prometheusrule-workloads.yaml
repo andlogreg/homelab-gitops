@@ -1,0 +1,65 @@
+---
+# Workload-level failures that nothing else here notices.
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: workloads
+  namespace: monitoring
+spec:
+  groups:
+    - name: scheduled-jobs
+      rules:
+        # NOT the same thing as KubeJobFailed, and this distinction is the whole point.
+        # KubeJobFailed catches a job that RAN and failed - loud, visible, already
+        # covered upstream. This catches a CronJob that quietly stopped being
+        # SCHEDULED, which produces no failed job, no event, and no signal of any kind.
+        #
+        # It is the generalisation of a real outage: CNPG scheduled backups stopped
+        # firing for 5.7 days and every status field stayed green, because nothing
+        # anywhere asks "should something have happened by now?"
+        #
+        # 26h suits the daily jobs here (renovate @daily, mealie-rag-ingest 02:00).
+        # Anything on a materially different cadence needs its own rule - this
+        # threshold is not universal.
+        - alert: CronJobNotScheduled
+          expr: '(time() - kube_cronjob_status_last_schedule_time) > (26 * 3600)'
+          for: 1h
+          labels:
+            severity: warning
+          annotations:
+            summary: "CronJob {{ $labels.namespace }}/{{ $labels.cronjob }} has not been scheduled in over 26h"
+            description: "The CronJob controller has not created a Job for {{ $labels.cronjob }} within 26 hours. Check for a suspended CronJob, a bad schedule, or a previous Job still holding concurrency."
+        - alert: CronJobSuspended
+          expr: "kube_cronjob_spec_suspend == 1"
+          for: 6h
+          labels:
+            severity: warning
+          annotations:
+            summary: "CronJob {{ $labels.namespace }}/{{ $labels.cronjob }} has been suspended for 6h"
+            description: "Suspending a CronJob is usually a temporary debugging step. Six hours later it is more likely to be forgotten than deliberate."
+
+    - name: ingress-tunnel
+      rules:
+        # cloudflared is the ONLY path in from outside the LAN. If the tunnels drop,
+        # every published service is unreachable from the internet while the cluster
+        # itself looks perfectly healthy from the inside - nothing in-cluster fails,
+        # no pod restarts, no probe trips (the probes check /ready, so a pod with no
+        # connections gets restarted rather than reported).
+        - alert: CloudflaredTunnelDegraded
+          expr: "cloudflared_tunnel_ha_connections < 4"
+          for: 15m
+          labels:
+            severity: warning
+          annotations:
+            summary: "cloudflared replica {{ $labels.instance }} has {{ $value }} of 4 edge connections"
+            description: "A cloudflared replica is holding fewer than its usual four connections to the Cloudflare edge. Redundancy is reduced but traffic still flows."
+        # The one that matters: not a degraded replica, but an entire deployment with
+        # no route to the edge at all.
+        - alert: CloudflaredTunnelDown
+          expr: "sum by (namespace) (cloudflared_tunnel_ha_connections) == 0"
+          for: 10m
+          labels:
+            severity: critical
+          annotations:
+            summary: "All cloudflared tunnels are down in {{ $labels.namespace }}"
+            description: "No replica in {{ $labels.namespace }} holds a connection to the Cloudflare edge, so everything it publishes is unreachable from outside the LAN. The cluster will look healthy from the inside."

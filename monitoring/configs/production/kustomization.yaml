@@ -7,6 +7,12 @@ resources:
   - external-secret-alertmanager.yaml
   - podmonitor-reloader.yaml
   - podmonitor-cloudflared.yaml
+  - prometheusrule-backups.yaml
+  # Host rules and the cloudflared/CronJob rules are production-only because their
+  # TARGETS are: the proxmox-hosts ScrapeConfig and both cloudflared deployments exist
+  # in this overlay alone. The backup rules above are shared with staging.
+  - prometheusrule-proxmox-hosts.yaml
+  - prometheusrule-workloads.yaml
 
 # Dashboard-as-code: the kube-prometheus-stack Grafana sidecar auto-imports
 # ConfigMaps labelled grafana_dashboard=1 from the monitoring namespace.

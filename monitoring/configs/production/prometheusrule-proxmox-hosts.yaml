@@ -1,0 +1,145 @@
+---
+# Rules for the two Proxmox hypervisors, which had exactly ONE alert between them.
+#
+# WHY THIS FILE HAS TO EXIST AT ALL. kube-prometheus-stack loads 59 node-exporter
+# rules and every one of them selects job="node-exporter". The hosts are scraped by
+# scrapeconfig-proxmox-hosts.yaml, which relabels them to job="proxmox-node". So they
+# matched none of it: filesystem-full, read-only root, clock desync and failed units
+# were all scraping cleanly and evaluated by nothing.
+#
+# A scrape job's label is load-bearing. Adding a target adds DATA, not monitoring.
+#
+# WHY NOT JUST RELABEL TO job="node-exporter" AND INHERIT ALL 59. Considered and
+# rejected. The chart's RECORDING rules aggregate over job="node-exporter", so folding
+# two bare-metal hypervisors into the same job as the in-cluster node-exporter quietly
+# changes what the cluster dashboards compute. It also inherits 59 rules nobody chose,
+# which is the opposite of the deny-by-default posture everything else here follows.
+# The cost of this choice is real: these must be maintained by hand and will not pick
+# up upstream improvements.
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: proxmox-hosts
+  namespace: monitoring
+spec:
+  groups:
+    - name: proxmox-host-health
+      rules:
+        - alert: ProxmoxHostFilesystemSpaceLow
+          expr: |-
+            node_filesystem_avail_bytes{job="proxmox-node",fstype!=""}
+              / node_filesystem_size_bytes{job="proxmox-node",fstype!=""} * 100 < 10
+            and node_filesystem_readonly{job="proxmox-node",fstype!=""} == 0
+          for: 1h
+          labels:
+            severity: warning
+          annotations:
+            summary: "{{ $labels.instance }} {{ $labels.mountpoint }} is below 10% free"
+            description: "Only {{ $value | printf \"%.1f\" }}% of {{ $labels.mountpoint }} remains on {{ $labels.instance }}. A full PVE root does not fail gracefully - it takes the hypervisor's ability to start guests with it."
+        - alert: ProxmoxHostFilesystemAlmostFull
+          expr: |-
+            node_filesystem_avail_bytes{job="proxmox-node",fstype!=""}
+              / node_filesystem_size_bytes{job="proxmox-node",fstype!=""} * 100 < 4
+            and node_filesystem_readonly{job="proxmox-node",fstype!=""} == 0
+          for: 30m
+          labels:
+            severity: critical
+          annotations:
+            summary: "{{ $labels.instance }} {{ $labels.mountpoint }} is nearly full ({{ $value | printf \"%.1f\" }}% free)"
+            description: "{{ $labels.mountpoint }} on {{ $labels.instance }} is about to run out of space."
+        # The quiet catastrophe: the kernel remounts read-only after an I/O error and
+        # everything keeps "running" while writing nothing.
+        - alert: ProxmoxHostFilesystemReadOnly
+          expr: 'node_filesystem_readonly{job="proxmox-node",fstype!=""} == 1'
+          for: 15m
+          labels:
+            severity: critical
+          annotations:
+            summary: "{{ $labels.instance }} has remounted {{ $labels.mountpoint }} read-only"
+            description: "A read-only remount almost always follows an I/O error. Check dmesg and the SMART attributes on {{ $labels.instance }}."
+        # Clock drift here presents as an AUTHENTICATION problem - expired-looking TLS,
+        # rejected Azure tokens, k3s cert errors - so it costs an hour of chasing the
+        # wrong thing unless something says the clock is the cause.
+        - alert: ProxmoxHostClockNotSynchronising
+          expr: 'min_over_time(node_timex_sync_status{job="proxmox-node"}[5m]) == 0 and node_timex_maxerror_seconds{job="proxmox-node"} >= 16'
+          for: 15m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Clock not synchronising on {{ $labels.instance }}"
+            description: "NTP sync is lost on {{ $labels.instance }}. Expect this to surface first as TLS and cloud-auth failures rather than as a time problem."
+        # openipmi.service is failed on BOTH hosts and always has been - these boards
+        # have no IPMI, so the unit fails at boot and stays failed. Excluding it is
+        # what keeps this rule from being a permanent alert on day one, which is the
+        # precondition the whole notification setup depends on. If openipmi is ever
+        # masked on the hosts, drop the exclusion rather than leaving it to rot.
+        - alert: ProxmoxHostSystemdUnitFailed
+          expr: 'node_systemd_unit_state{job="proxmox-node",state="failed",name!="openipmi.service"} == 1'
+          for: 30m
+          labels:
+            severity: warning
+          annotations:
+            summary: "systemd unit {{ $labels.name }} failed on {{ $labels.instance }}"
+            description: "{{ $labels.name }} is in the failed state on {{ $labels.instance }}."
+
+    - name: proxmox-host-storage-health
+      rules:
+        # SsdWearHigh covers the SLOW burn - endurance consumed over years. It says
+        # nothing about a drive that fails outright, which is a different failure with
+        # a different response time.
+        - alert: SsdSmartUnhealthy
+          expr: 'smartmon_device_smart_healthy{job="proxmox-node"} == 0'
+          for: 15m
+          labels:
+            severity: warning
+          annotations:
+            summary: "SMART overall-health self-assessment FAILED on {{ $labels.instance }} {{ $labels.disk }}"
+            description: "The drive itself reports it is failing. Replace it; do not wait for the wear indicator."
+        - alert: SsdReallocatedSectorsGrowing
+          expr: 'increase(smartmon_reallocated_sector_ct_raw_value{job="proxmox-node"}[24h]) > 0'
+          for: 30m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Reallocated sectors increasing on {{ $labels.instance }} {{ $labels.disk }}"
+            description: "The reallocated-sector count grew in the last 24h. A count that is climbing is a far better predictor of imminent failure than its absolute value."
+        # THE ONE THAT MAKES SsdWearHigh HONEST. The wear alert reads a metric produced
+        # by a smartmon textfile collector on the host. If that collector stops, the
+        # series goes stale and SsdWearHigh silently stops working - which looks
+        # exactly like "the SSDs are fine". An alert on a metric nobody produces is
+        # indistinguishable from nothing being wrong.
+        #
+        # smartctl currently reruns every couple of minutes, so 2h is generous slack
+        # and not a threshold that needs tuning.
+        - alert: SmartTextfileCollectorStale
+          expr: '(time() - smartmon_smartctl_run{job="proxmox-node"}) > 7200'
+          for: 30m
+          labels:
+            severity: warning
+          annotations:
+            summary: "smartmon textfile collector is stale on {{ $labels.instance }}"
+            description: "smartctl has not run on {{ $labels.instance }} for over 2 hours, so the SMART metrics are frozen. SsdWearHigh and the SMART rules above are blind until this is fixed - and blind looks identical to healthy."
+        - alert: ProxmoxHostTextfileCollectorError
+          expr: 'node_textfile_scrape_error{job="proxmox-node"} == 1'
+          for: 15m
+          labels:
+            severity: warning
+          annotations:
+            summary: "node_exporter textfile collector is erroring on {{ $labels.instance }}"
+            description: "node_exporter could not parse a textfile on {{ $labels.instance }}. Any metric fed by that file is now stale or missing."
+
+    - name: proxmox-host-thermal
+      rules:
+        # No upstream rule exists for this anywhere - node-exporter ships hwmon
+        # metrics and no alerts for them. Threshold picked against a measured
+        # baseline of 58 C (david-i) and 50 C (david-ii) at the package sensor, well
+        # clear of 80 C. This is the leading indicator of a fan that has stopped or a
+        # cupboard that has stopped ventilating.
+        - alert: ProxmoxHostCpuTemperatureHigh
+          expr: 'max by (instance) (node_hwmon_temp_celsius{job="proxmox-node",chip="platform_coretemp_0"}) > 80'
+          for: 15m
+          labels:
+            severity: warning
+          annotations:
+            summary: "CPU package temperature {{ $value | printf \"%.0f\" }} C on {{ $labels.instance }}"
+            description: "Sustained above 80 C for 15 minutes (normal here is 50-58 C). Check fans, dust and airflow before the CPU starts thermal-throttling."
