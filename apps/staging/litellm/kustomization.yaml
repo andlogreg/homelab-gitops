@@ -7,6 +7,12 @@ resources:
   - objectstore-archive.yaml
 
 patches:
+  # Entra identity on the LIVE ObjectStore only. The archive one keeps the account key until it is
+  # retired -- it is read-only, frozen, and about to be emptied by the storage lifecycle rule.
+  - path: objectstore-aad-patch.yaml
+    target:
+      kind: ObjectStore
+      name: litellm-db-objectstore
   # task-21: recover the CNPG db from the frozen pre-teardown archive (see recovery.yaml)
   - path: recovery.yaml
     target:
