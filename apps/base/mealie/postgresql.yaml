@@ -12,6 +12,16 @@ metadata:
 spec:
   instances: 1
 
+  # The instance pod already serves metrics on :9187; this only creates the PodMonitor
+  # that makes Prometheus scrape it. Needed for WAL-archiving alerting, which reads
+  # cnpg_pg_stat_archiver_* - those come from Postgres itself, so unlike the operator's
+  # cnpg_collector_last_available_backup_timestamp (which reads a permanent 0 under the
+  # barman-cloud PLUGIN, as opposed to the deprecated in-tree barmanObjectStore) they
+  # are actually populated. Base-backup freshness is watched separately, via
+  # kube-state-metrics custom-resource-state over the Backup CRs.
+  monitoring:
+    enablePodMonitor: true
+
   bootstrap:
     initdb:
       database: mealie

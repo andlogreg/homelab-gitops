@@ -1,0 +1,97 @@
+---
+# Makes CNPG backup FRESHNESS observable. Nothing else here can do it.
+#
+# Why this exists at all - it cost 5.7 days of silently-dead scheduled backups to
+# find out - is that the obvious metrics are a trap.
+#
+#   cnpg_collector_last_available_backup_timestamp   0
+#   cnpg_collector_first_recoverability_point        0
+#   .status.lastSuccessfulBackup                     (empty)
+#
+# Those are populated by the DEPRECATED in-tree barmanObjectStore, not by the
+# barman-cloud plugin this repo uses. They read a permanent literal 0 rather than
+# going absent, so a rule written against them is permanently firing or permanently
+# silent depending only on the comparison operator - never correct. Every CNPG
+# monitoring guide written before the plugin recommends them.
+#
+# Nor can the Cluster status conditions be used. Through the entire outage they read
+# ContinuousArchiving=True and LastBackupSucceeded=True, because they describe the
+# last backup that RAN, not whether one ran RECENTLY. A backup monitor has to measure
+# freshness, not last-known-outcome.
+#
+# So the state is read straight off the CRs via kube-state-metrics custom-resource-state.
+# This is not an invention - it is the same mechanism Flux's own monitoring example
+# uses to expose Kustomization state.
+#
+# NAMING: cnpg_scheduledbackup_* and cnpg_backup_* are emitted by KUBE-STATE-METRICS,
+# not by CloudNativePG. Searching the CNPG docs for them will find nothing. They carry
+# job="kube-state-metrics", which is the giveaway.
+#
+# NOT IN base/: helios does not install CNPG at all, so a custom-resource-state config
+# naming postgresql.cnpg.io there would reference a CRD that does not exist. This file
+# is duplicated in the production overlay for the same reason. dev is left out too - it
+# has CNPG but no Velero and no backup path worth watching.
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: kube-prometheus-stack
+spec:
+  values:
+    kube-state-metrics:
+      # The stock ClusterRole knows nothing about CNPG's API group. Without this the
+      # informer cannot list/watch and the metrics are simply absent - which looks
+      # identical to "no backups are configured".
+      rbac:
+        extraRules:
+          - apiGroups: ["postgresql.cnpg.io"]
+            resources: ["backups", "scheduledbackups"]
+            verbs: ["list", "watch"]
+      customResourceState:
+        enabled: true
+        config:
+          kind: CustomResourceStateMetrics
+          spec:
+            resources:
+              # THE important one. status.lastScheduleTime is the only honest answer to
+              # "did the scheduler actually fire", and it is what was frozen at
+              # 2026-07-26 for 5.7 days while everything else reported healthy.
+              # RFC3339 strings are parsed to a float Unix timestamp automatically.
+              - groupVersionKind:
+                  group: postgresql.cnpg.io
+                  version: v1
+                  kind: ScheduledBackup
+                metricNamePrefix: cnpg_scheduledbackup
+                labelsFromPath:
+                  namespace: [metadata, namespace]
+                  name: [metadata, name]
+                  cluster: [spec, cluster, name]
+                metrics:
+                  - name: last_schedule_time
+                    help: "Unix time the CNPG ScheduledBackup controller last actually scheduled a backup. Staleness here means the schedule is dead, regardless of what the Cluster conditions say."
+                    each:
+                      type: Gauge
+                      gauge:
+                        path: [status, lastScheduleTime]
+              # Secondary: lets a stuck backup be seen directly rather than inferred
+              # from the absence of new ones. The 5.7-day outage was CAUSED by Backup
+              # CRs wedged in `pending` - the operator refuses to start a new scheduled
+              # backup while one is outstanding, so `pending` is not a harmless
+              # transient state here, it is the failure mode.
+              - groupVersionKind:
+                  group: postgresql.cnpg.io
+                  version: v1
+                  kind: Backup
+                metricNamePrefix: cnpg_backup
+                labelsFromPath:
+                  namespace: [metadata, namespace]
+                  name: [metadata, name]
+                  cluster: [spec, cluster, name]
+                metrics:
+                  - name: phase
+                    help: "CNPG Backup phase as a state set. A `pending` that never clears blocks the whole ScheduledBackup controller."
+                    each:
+                      type: StateSet
+                      stateSet:
+                        labelName: phase
+                        path: [status, phase]
+                        list: [pending, started, running, completed, failed, walArchivingFailing]

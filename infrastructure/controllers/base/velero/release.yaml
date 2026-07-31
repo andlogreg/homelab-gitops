@@ -31,6 +31,20 @@ spec:
     # Adding the annotation would only buy an unnecessary restart of the backup path.
     credentials:
       existingSecret: velero-backup-creds  # pragma: allowlist secret
+    # The server has always served metrics on :8085 and nothing scraped them, so a
+    # backup that silently stopped working was invisible. These two flags only create
+    # the ServiceMonitor/PodMonitor - no new port, no new container.
+    #
+    # metrics.prometheusRule is deliberately NOT enabled here. The chart ships it with
+    # `spec: []` and its four reference alerts commented out, so enabling it would
+    # install an empty rule that looks like coverage. Those alerts are transcribed into
+    # monitoring/configs/*/prometheusrule-backups.yaml instead, where they sit next to
+    # the CNPG half and are visible in review.
+    metrics:
+      serviceMonitor:
+        enabled: true
+      nodeAgentPodMonitor:
+        enabled: true
     snapshotsEnabled: false
     deployNodeAgent: true
     configuration:

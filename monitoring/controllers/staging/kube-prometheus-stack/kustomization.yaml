@@ -6,6 +6,7 @@ resources:
   - ../../base/kube-prometheus-stack
 
 patches:
+  - path: kube-state-metrics-cnpg.yaml
   - target:
       kind: HelmRelease
       name: kube-prometheus-stack

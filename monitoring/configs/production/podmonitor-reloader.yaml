@@ -14,11 +14,13 @@
 #     before its CRD exists. This layer depends on the monitoring controllers, so
 #     it cannot. (Same reason the velero ExternalSecret lives in configs.)
 #
-#   - The release=kube-prometheus-stack label is load-bearing. The
-#     serviceMonitor / scrapeConfig / rule selectors are relaxed to {} in the
-#     kube-prometheus-stack values, but podMonitorSelector was left at the chart
-#     default, which matches only this label. Without it the target is silently
-#     never scraped.
+#   - The release=kube-prometheus-stack label USED to be load-bearing, and is now
+#     only conventional. podMonitorSelector was left at the chart default (matching
+#     only this label) while the serviceMonitor / scrapeConfig / rule selectors were
+#     relaxed to {}; it has since been relaxed too, because PodMonitors generated
+#     by other charts (CNPG, Velero node-agent) cannot be given the label and were
+#     therefore silently never scraped. The label is kept here by convention, not
+#     necessity.
 apiVersion: monitoring.coreos.com/v1
 kind: PodMonitor
 metadata:

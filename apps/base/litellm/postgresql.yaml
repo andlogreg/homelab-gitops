@@ -11,6 +11,12 @@ metadata:
 spec:
   instances: 1
 
+  # See the equivalent note in apps/base/mealie/postgresql.yaml: this creates the
+  # PodMonitor for the metrics the instance already serves on :9187, which is what
+  # makes WAL-archiving alerting possible.
+  monitoring:
+    enablePodMonitor: true
+
   bootstrap:
     initdb:
       database: litellm

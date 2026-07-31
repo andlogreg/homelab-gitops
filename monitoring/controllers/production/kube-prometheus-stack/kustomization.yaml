@@ -6,3 +6,4 @@ resources:
 
 patches:
   - path: alertmanager-receivers.yaml
+  - path: kube-state-metrics-cnpg.yaml
