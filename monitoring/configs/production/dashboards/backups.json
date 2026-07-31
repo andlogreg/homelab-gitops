@@ -1,0 +1,386 @@
+{
+  "annotations": { "list": [] },
+  "description": "Off-cluster backup health for the phoenix clusters: Velero file backup (kopia) and CNPG barman. The headline row answers 'is a recent backup on disk right now'; everything below explains why. Freshness is the load-bearing measure - every outcome-shaped signal here (Cluster conditions, last_status) describes the last backup that RAN, not whether one ran RECENTLY, and all of them read healthy through a 5.7-day outage.",
+  "editable": true,
+  "graphTooltip": 1,
+  "refresh": "1m",
+  "schemaVersion": 39,
+  "tags": ["backup", "velero", "cnpg", "barman", "homelab"],
+  "templating": {
+    "list": [
+      {
+        "name": "datasource",
+        "label": "Data source",
+        "type": "datasource",
+        "query": "prometheus",
+        "current": {},
+        "hide": 0,
+        "refresh": 1,
+        "regex": ""
+      }
+    ]
+  },
+  "time": { "from": "now-7d", "to": "now" },
+  "title": "Backups",
+  "uid": "backups",
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Velero — hours since last successful backup",
+      "description": "Per schedule. Ad-hoc backups are excluded (schedule!=\"\"): they are one-shot by nature and would otherwise age into a permanent red. Red at 25h matches the VeleroNoNewBackup alert - one missed daily run plus an hour of slack.",
+      "gridPos": { "h": 5, "w": 6, "x": 0, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "expr": "(time() - velero_backup_last_successful_timestamp{schedule!=\"\"}) / 3600",
+          "legendFormat": "{{schedule}}",
+          "instant": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "h",
+          "decimals": 1,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 20 },
+              { "color": "red", "value": 25 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto",
+        "justifyMode": "auto",
+        "orientation": "auto"
+      }
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "CNPG — hours since the schedule last fired",
+      "description": "From kube-state-metrics over ScheduledBackup.status.lastScheduleTime, NOT from CNPG. The metric CNPG would normally provide for this (cnpg_collector_last_available_backup_timestamp) reads a permanent literal 0 under the barman-cloud plugin. Red at 26h matches CnpgNoRecentScheduledBackup.",
+      "gridPos": { "h": 5, "w": 6, "x": 6, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "expr": "(time() - cnpg_scheduledbackup_last_schedule_time) / 3600",
+          "legendFormat": "{{namespace}}",
+          "instant": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "h",
+          "decimals": 1,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 20 },
+              { "color": "red", "value": 26 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto",
+        "justifyMode": "auto",
+        "orientation": "auto"
+      }
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Velero object store",
+      "description": "BackupStorageLocation reachability. Expect a brief Unavailable (~90s) during a credential rotation while kubelet refreshes the mounted secret - that is why the alert tolerates 30m.",
+      "gridPos": { "h": 5, "w": 6, "x": 12, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "expr": "velero_backup_location_status_gauge",
+          "legendFormat": "{{backup_location_name}}",
+          "instant": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": { "text": "Unavailable", "color": "red", "index": 0 },
+                "1": { "text": "Available", "color": "green", "index": 1 }
+              }
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [{ "color": "text", "value": null }]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto",
+        "justifyMode": "auto",
+        "orientation": "auto"
+      }
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "CNPG — WAL archive lag",
+      "description": "Time since Postgres last successfully archived a WAL segment. This is the point-in-time-recovery half: base backups alone cannot recover past the last archived WAL. Comes from Postgres itself (cnpg_pg_stat_archiver_*), which is why it survived the move to the barman plugin.",
+      "gridPos": { "h": 5, "w": 6, "x": 18, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "expr": "time() - cnpg_pg_stat_archiver_last_archived_time",
+          "legendFormat": "{{namespace}}",
+          "instant": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "decimals": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 3600 },
+              { "color": "red", "value": 21600 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto",
+        "justifyMode": "auto",
+        "orientation": "auto"
+      }
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "Backup freshness — hours since the last good backup",
+      "description": "Both mechanisms on one axis because both are measured in hours; the dashed threshold marks where the alerts fire. A healthy daily backup draws a sawtooth that resets each morning. A flat rising line means the schedule has stopped - which is exactly the shape the 5.7-day CNPG outage drew, unwatched.",
+      "gridPos": { "h": 9, "w": 24, "x": 0, "y": 5 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "expr": "(time() - velero_backup_last_successful_timestamp{schedule!=\"\"}) / 3600",
+          "legendFormat": "velero / {{schedule}}"
+        },
+        {
+          "refId": "B",
+          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "expr": "(time() - cnpg_scheduledbackup_last_schedule_time) / 3600",
+          "legendFormat": "cnpg / {{namespace}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "h",
+          "decimals": 1,
+          "min": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 0,
+            "showPoints": "never",
+            "spanNulls": false,
+            "thresholdsStyle": { "mode": "dashed" }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "red", "value": 25 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true, "calcs": [] },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      }
+    },
+    {
+      "id": 6,
+      "type": "state-timeline",
+      "title": "Velero — outcome of the most recent backup",
+      "description": "velero_backup_last_status per schedule. Unlike the counters, this value IS rehydrated from the Backup CRs when Velero restarts, so gaps here mean Velero was genuinely unreachable rather than merely restarted.",
+      "gridPos": { "h": 7, "w": 12, "x": 0, "y": 14 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "expr": "velero_backup_last_status{schedule!=\"\"}",
+          "legendFormat": "{{schedule}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": { "text": "Failed", "color": "red", "index": 0 },
+                "1": { "text": "OK", "color": "green", "index": 1 }
+              }
+            }
+          ],
+          "custom": { "fillOpacity": 80, "lineWidth": 0 },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [{ "color": "text", "value": null }]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "showValue": "auto",
+        "mergeValues": true,
+        "alignValue": "center",
+        "rowHeight": 0.9,
+        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true },
+        "tooltip": { "mode": "single" }
+      }
+    },
+    {
+      "id": 7,
+      "type": "table",
+      "title": "CNPG backups not completed",
+      "description": "Every Backup CR that is not in phase `completed`. This should normally be empty. A row stuck in `pending` is the failure mode that caused the 5.7-day outage: while one is outstanding the operator refuses to start any new scheduled backup, silently. Deleting the stale CR releases it.",
+      "gridPos": { "h": 7, "w": 12, "x": 12, "y": 14 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "expr": "cnpg_backup_phase{phase!=\"completed\"} == 1",
+          "format": "table",
+          "instant": true
+        }
+      ],
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true,
+              "Value": true,
+              "__name__": true,
+              "container": true,
+              "endpoint": true,
+              "instance": true,
+              "job": true,
+              "pod": true,
+              "prometheus": true,
+              "service": true,
+              "customresource_group": true,
+              "customresource_kind": true,
+              "customresource_version": true
+            },
+            "renameByName": {
+              "namespace": "Namespace",
+              "name": "Backup",
+              "cluster": "Cluster",
+              "phase": "Phase"
+            }
+          }
+        }
+      ],
+      "fieldConfig": { "defaults": {}, "overrides": [] },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": { "show": false, "reducer": ["sum"], "countRows": false, "fields": "" }
+      }
+    },
+    {
+      "id": 8,
+      "type": "timeseries",
+      "title": "CNPG — WAL segments archived vs failed (per hour)",
+      "description": "Both are counts, so they share one axis. Archived should track write activity; failed should be flat at zero. A failed count that climbs while archived stalls is CnpgWalArchivingFailing about to fire.",
+      "gridPos": { "h": 6, "w": 24, "x": 0, "y": 21 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "expr": "increase(cnpg_pg_stat_archiver_archived_count[1h])",
+          "legendFormat": "archived / {{namespace}}"
+        },
+        {
+          "refId": "B",
+          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "expr": "increase(cnpg_pg_stat_archiver_failed_count[1h])",
+          "legendFormat": "FAILED / {{namespace}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "min": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": false
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [{ "color": "text", "value": null }]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byRegexp", "options": "FAILED.*" },
+            "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "red" } }]
+          }
+        ]
+      },
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true, "calcs": [] },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      }
+    }
+  ]
+}

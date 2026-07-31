@@ -24,3 +24,10 @@ configMapGenerator:
       labels:
         grafana_dashboard: "1"
       disableNameSuffixHash: true
+  - name: grafana-dashboard-backups
+    files:
+      - backups.json=dashboards/backups.json
+    options:
+      labels:
+        grafana_dashboard: "1"
+      disableNameSuffixHash: true

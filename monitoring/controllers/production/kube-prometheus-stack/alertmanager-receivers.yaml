@@ -58,27 +58,29 @@ spec:
               matchers:
                 - alertname = "SsdWearHigh"
               repeat_interval: 24h
-            # HELD BACK ON PURPOSE, and this route must stay ABOVE the severity
-            # one to have any effect - Alertmanager takes the first matching
-            # child route and stops.
+            # TO HOLD A CRITICAL ALERT BACK without lying about its severity,
+            # add a route here matching it by alertname to the 'null' receiver.
+            # It must sit ABOVE the severity route to have any effect, because
+            # Alertmanager takes the first matching child route and stops.
             #
-            # These three are genuinely critical and are labelled honestly as
-            # such, because severity should describe how bad a thing is, not
-            # which channel it happens to use. What is scoped for now is backup
-            # failure and staleness only; everything else stays UI-visible.
-            # Keeping the severity truthful and suppressing delivery here means
-            # PROMOTING one of them to a page is deleting a name from this list,
-            # not re-labelling a rule and re-reasoning about what critical means.
-            - receiver: 'null'
-              matchers:
-                - alertname =~ "ProxmoxHostFilesystemAlmostFull|ProxmoxHostFilesystemReadOnly|CloudflaredTunnelDown"
-            # Not listed above and therefore NOT paging yet, because it is
-            # permanently firing: KubeJobFailed has been standing on this cluster
-            # since the mealie-rag nightly ingest started failing every run. It
-            # is a warning, so the severity route below does not reach it, and it
-            # must stay that way until that job is fixed - wiring it first would
-            # deliver a permanent page on day one, which is the precise mistake
-            # KubeProxyDown taught us to check for.
+            #   - receiver: 'null'
+            #     matchers:
+            #       - alertname =~ "SomeCriticalAlert|AnotherOne"
+            #
+            # That is preferable to re-labelling the rule as a warning: severity
+            # should say how bad a thing is, not which channel it happens to use,
+            # and dashboards and future readers both depend on it meaning the
+            # former. ProxmoxHostFilesystemReadOnly, ProxmoxHostFilesystemAlmostFull
+            # and CloudflaredTunnelDown were held back this way while the host
+            # rules were being proven, and have since been promoted - which was
+            # deleting three names, not re-reasoning about severity.
+            #
+            # KubeJobFailed is the current case for the opposite reason: it is
+            # permanently firing while the mealie-rag nightly ingest fails every
+            # run, so it must NOT be routed until that is fixed. No suppression
+            # is needed for it - it is a warning, so the severity route below
+            # does not reach it. Wiring it early would deliver a permanent page
+            # on day one, the precise mistake KubeProxyDown taught us to check.
             - receiver: telegram
               matchers:
                 - severity = "critical"
