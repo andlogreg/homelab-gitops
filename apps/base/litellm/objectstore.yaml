@@ -6,18 +6,41 @@ spec:
   configuration:
     destinationPath: "https://${STORAGE_ACCOUNT_NAME}.blob.core.windows.net/cnpg-backups/litellm"
     azureCredentials:
-      storageAccount:
-        name: cnpg-backup-creds
-        key: storage-account-name
-      # storage-account-key is the storage ACCOUNT KEY, not a shared-access signature: it never
-      # expires and carries read/write/delete over every container in the account. It belongs in
-      # storageKey. storageSasToken would also work - barman hands either env var to the Azure SDK
-      # as the same `credential` argument - but naming it that way makes the manifest claim a
-      # scoped, time-limited credential is in use, which is exactly the wrong conclusion for
-      # anyone auditing or planning a change here.
-      storageKey:
-        name: cnpg-backup-creds
-        key: storage-account-key
+      # useDefaultAzureCredentials, NOT inheritFromAzureAD. The CRD offers both as "use Azure AD"
+      # and they are not interchangeable: inheritFromAzureAD makes the plugin pass
+      # `--credential managed-identity`, so barman builds a ManagedIdentityCredential and calls the
+      # IMDS endpoint at 169.254.169.254 -- which does not exist on bare-metal Kubernetes. This one
+      # passes `--credential default`, and DefaultAzureCredential begins with EnvironmentCredential,
+      # which reads the variables injected into the sidecar below.
+      #
+      # Exactly one auth method is allowed, so this replaces storageKey rather than joining it. The
+      # identity reaches only the cnpg-backups container -- not the Velero backups, and no ARM.
+      useDefaultAzureCredentials: true
     wal:
       compression: gzip
+  # The plugin emits no credential environment on this path, and instanceSidecarConfiguration
+  # exposes `env` but no volumes, so container env is the only way in.
+  #
+  # CONSEQUENCE: env from secretKeyRef is resolved at pod start and never refreshes. The sidecar
+  # used to re-read the account key from the API server on every archive call, so a rotation needed
+  # no restart -- that is no longer true. Rotating this secret requires DELETING the instance pods.
+  # A CNPG restart annotation is NOT enough: it restarts PostgreSQL in place and leaves the pod,
+  # and therefore its env, untouched.
+  instanceSidecarConfiguration:
+    env:
+      - name: AZURE_CLIENT_ID
+        valueFrom:
+          secretKeyRef:
+            name: cnpg-backup-creds
+            key: AZURE_CLIENT_ID
+      - name: AZURE_TENANT_ID
+        valueFrom:
+          secretKeyRef:
+            name: cnpg-backup-creds
+            key: AZURE_TENANT_ID
+      - name: AZURE_CLIENT_SECRET
+        valueFrom:
+          secretKeyRef:
+            name: cnpg-backup-creds
+            key: AZURE_CLIENT_SECRET
   retentionPolicy: "14d"
