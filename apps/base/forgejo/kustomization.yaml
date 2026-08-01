@@ -16,5 +16,18 @@ configMapGenerator:
       - FORGEJO__server__ROOT_URL=https://forgejo.prod.andlogreg.work
       - FORGEJO__server__SSH_LISTEN_PORT=2222
       - FORGEJO__server__SSH_PORT=2222
+      # SSH_DOMAIN otherwise keeps the entrypoint template's default of "localhost",
+      # which is what the clone URL on every repo page is built from.
+      - FORGEJO__server__SSH_DOMAIN=forgejo.prod.andlogreg.work
       - FORGEJO__database__DB_TYPE=sqlite3
       - FORGEJO__actions__ENABLED=false
+      # INSTALL_LOCK closes the first-run web installer. Without it, anyone who can
+      # reach this Ingress can walk through setup and make themselves the admin of a
+      # service inside the cluster - and /api/healthz answers 200 throughout, so no
+      # probe reports it. The init container in the Deployment does the setup that
+      # this locks out.
+      - FORGEJO__security__INSTALL_LOCK=true
+      # Single-user instance: accounts are created by the admin, and nothing is
+      # readable without signing in.
+      - FORGEJO__service__DISABLE_REGISTRATION=true
+      - FORGEJO__service__REQUIRE_SIGNIN_VIEW=true

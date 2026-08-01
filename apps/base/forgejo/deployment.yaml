@@ -2,6 +2,12 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: forgejo
+  # No secret.reloader.stakater.com/reload annotation here, on purpose. forgejo-secrets
+  # carries SECRET_KEY, which encrypts data held in the database (2FA secrets, mirror
+  # credentials) - rotating it in place makes that data undecryptable, and restarting
+  # faster does not help. The admin credential in the same Secret is applied only when
+  # the account is absent, so a restart would not pick up a changed password either.
+  # Same call, for the same reason, as litellm-secrets.
 spec:
   replicas: 1
   # Recreate rather than the default RollingUpdate: DB_TYPE is sqlite3, so the database is a
@@ -19,6 +25,58 @@ spec:
     spec:
       securityContext:
         fsGroup: 1000
+      initContainers:
+      # Forgejo's first run is a web installer: it creates the database, creates the
+      # admin account, and only then sets INSTALL_LOCK. Clicking through it leaves
+      # nothing in git, so the next rebuild comes back up empty and unlocked again.
+      # This container does that same work from the declared config instead, which is
+      # what makes INSTALL_LOCK=true safe to set rather than merely locking everyone
+      # out of an instance that was never set up.
+      #
+      # Only `args` is set here, never `command`. The image entrypoint is
+      # `dumb-init -- docker-entrypoint.sh`, which renders app.ini and applies every
+      # FORGEJO__* variable through environment-to-ini before exec'ing whatever it is
+      # given. Overriding `command` would skip all of that and run migrate against an
+      # unconfigured app.ini.
+      - name: init-forgejo
+        image: data.forgejo.org/forgejo/forgejo:14.0.5-rootless
+        args:
+        - /bin/sh
+        - -c
+        - |
+          set -eu
+          forgejo migrate
+          if forgejo admin user list --admin | tail -n +2 | awk '{print $2}' \
+               | grep -qxF "$FORGEJO_ADMIN_USERNAME"; then
+            echo "admin user '$FORGEJO_ADMIN_USERNAME' already exists - nothing to do"
+          else
+            echo "creating admin user '$FORGEJO_ADMIN_USERNAME'"
+            forgejo admin user create --admin \
+              --username "$FORGEJO_ADMIN_USERNAME" \
+              --password "$FORGEJO_ADMIN_PASSWORD" \
+              --email "$FORGEJO_ADMIN_EMAIL" \
+              --must-change-password=false
+          fi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          runAsGroup: 1000
+          runAsNonRoot: true
+          runAsUser: 1000
+          seccompProfile:
+            type: RuntimeDefault
+        envFrom:
+        - configMapRef:
+            name: forgejo-config
+        - secretRef:
+            name: forgejo-secrets
+        volumeMounts:
+        - mountPath: /var/lib/gitea
+          name: forgejo-data
+        - mountPath: /etc/gitea
+          name: forgejo-config
       containers:
       - name: forgejo
         image: data.forgejo.org/forgejo/forgejo:14.0.5-rootless
@@ -40,6 +98,8 @@ spec:
         envFrom:
         - configMapRef:
             name: forgejo-config
+        - secretRef:
+            name: forgejo-secrets
         ports:
         - containerPort: 3000
           name: http
