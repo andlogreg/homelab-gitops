@@ -1,7 +1,12 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
-  - cronjob.yaml
+  # Retired, not deleted - the manifest is kept because the work to make it viable
+  # again is understood and written down in its own header. It failed every single
+  # night since it was wired and never once succeeded, so its only effect was a
+  # permanently firing KubeJobFailed that blocked Job alerting from being routed at
+  # all. Re-enabling it is this one line, once its preconditions hold.
+  # - cronjob.yaml
   - deployment.yaml
   - external-secret.yaml
   - service.yaml

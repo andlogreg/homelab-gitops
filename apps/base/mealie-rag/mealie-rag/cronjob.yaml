@@ -1,19 +1,45 @@
+# NOT APPLIED. This resource is commented out of kustomization.yaml. Kept as the
+# record of what has to be true before a nightly re-index can work at all.
+#
+# It never succeeded once. Qdrant is empty because no run ever reached the point of
+# writing to it - not, as was assumed for a while, because a run deleted the
+# collection and then died. The ordering inside the image matters here and is easy
+# to get backwards: fetch recipes -> probe the embedding dimension -> delete and
+# recreate the collection -> enrich and embed every recipe -> upsert once at the
+# very end. The probe is the step that fails, and it sits BEFORE the delete.
+#
+# FOUR INDEPENDENT REASONS IT CANNOT WORK. Any one of them alone is fatal, so
+# fixing fewer than all four changes nothing observable:
+#
+#   1. The peaker host that serves the models is powered off by design. Most nights
+#      there is nothing listening.
+#   2. The embedding model is not resident even when it is on. Models are pulled by
+#      hand onto a local PVC, so a rebuilt cluster comes back with an empty store
+#      and nothing in git pulls them.
+#   3. The model group this job asks for is not defined in this repo. It lives in
+#      LiteLLM's database (the proxy runs with STORE_MODEL_IN_DB enabled), and the
+#      credential it resolves through points at a hostname no DNS wildcard covers -
+#      ollama-helios.<domain>, where the wildcard is *.helios.<domain>. Grepping
+#      these manifests for the address it really dials finds nothing, which is what
+#      made this expensive to diagnose. Treat the LiteLLM UI as experiments only;
+#      anything an app depends on belongs in git.
+#   4. The cluster cannot resolve the LAN split-horizon names at all. The k3s VM's
+#      resolver is the router rather than the LAN DNS servers, so CoreDNS forwards
+#      there and NO *.<cluster>.<domain> name resolves from inside a pod. Verified
+#      from a running pod, not inferred.
+#
+# AND FIX THE DESTRUCTIVE ORDERING BEFORE PUTTING IT BACK ON A SCHEDULE. Step 3
+# above drops the collection, then dozens of LLM calls run, and the upsert happens
+# only at the end - so any failure in that window leaves the index empty rather
+# than stale. Setting delete_collection_if_exists=false is NOT a mitigation: the
+# app raises when the collection already exists, so it can never refresh one. The
+# fix belongs in the image - build into a second collection and swap a Qdrant alias
+# on success, since alias updates are atomic and an alias is valid wherever a
+# collection name is.
 apiVersion: batch/v1
 kind: CronJob
 metadata:
   name: mealie-rag-ingest
-  annotations:
-    # ACCEPTED DEGRADATION - do not investigate this as a bug when you find it red.
-    # The dependency is indirect, which is why grepping these manifests for a helios
-    # URL finds nothing: this job calls production LiteLLM's "embed" model, which is
-    # routed (in apps/production/litellm/config.yaml) to Ollama on the helios
-    # cluster. That cluster runs on the peaker host, which is powered off by design.
-    #
-    # Two separate reasons it can fail, both known and accepted: the peaker is off,
-    # and even when it is on the embedding model itself is not resident - helios
-    # ollama models are pulled by hand and live only on a local PVC, so a rebuilt
-    # cluster comes back empty. A nightly recipe re-index is not household-critical.
-    homelab.andlogreg.work/accepted-degradation: "helios peaker off, and embed model not resident"
 spec:
   schedule: "0 2 * * *"
   concurrencyPolicy: Forbid

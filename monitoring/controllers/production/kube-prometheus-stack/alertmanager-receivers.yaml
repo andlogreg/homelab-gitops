@@ -75,12 +75,22 @@ spec:
             # rules were being proven, and have since been promoted - which was
             # deleting three names, not re-reasoning about severity.
             #
-            # KubeJobFailed is the current case for the opposite reason: it is
-            # permanently firing while the mealie-rag nightly ingest fails every
-            # run, so it must NOT be routed until that is fixed. No suppression
-            # is needed for it - it is a warning, so the severity route below
-            # does not reach it. Wiring it early would deliver a permanent page
-            # on day one, the precise mistake KubeProxyDown taught us to check.
+            # A failed Job is worth knowing about the same day, not the same
+            # minute, hence the 24h repeat. Routed by alertname because it is a
+            # warning upstream and the severity route below does not reach it.
+            #
+            # This was held back for a while, and the reason is worth keeping:
+            # the mealie-rag nightly re-index failed every single run, so
+            # KubeJobFailed was permanently firing and wiring this would have
+            # delivered a page that never stopped - the precise mistake
+            # KubeProxyDown taught us to check for. That CronJob has since been
+            # retired rather than left failing, which is what made this safe. If
+            # a Job here ever starts failing on a schedule, retire or fix it;
+            # do not silence this route.
+            - receiver: telegram
+              matchers:
+                - alertname = "KubeJobFailed"
+              repeat_interval: 24h
             - receiver: telegram
               matchers:
                 - severity = "critical"
