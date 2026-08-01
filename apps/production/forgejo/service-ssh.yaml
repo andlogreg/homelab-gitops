@@ -1,0 +1,34 @@
+# Git over SSH. The Ingress next to this file carries HTTP only, so the built-in SSH
+# server (START_SSH_SERVER, listening on 2222 inside the pod) needs its own way in.
+#
+# A LoadBalancer Service rather than a Traefik TCP entryPoint: Traefik here is the
+# k3s-bundled HelmChart, which this repo does not manage at all. Opening a TCP
+# entryPoint would mean introducing a HelmChartConfig for previously untracked
+# infrastructure that sits in the ingress path of every household-facing app. This
+# stays inside the forgejo namespace instead, and k3s ServiceLB publishes it.
+#
+# The cost, worth knowing before adding a second one: ServiceLB has no address pool -
+# every LoadBalancer shares the node IP, so ports must be unique across the cluster,
+# and a taken port does not fail loudly. The svclb DaemonSet pod simply will not
+# schedule and the Service sits at EXTERNAL-IP <pending> while everything else still
+# reports healthy. 2222 was confirmed free before this landed.
+#
+# externalTrafficPolicy is left at Cluster, so forgejo sees connections from the
+# ServiceLB pod rather than the real client. Local would preserve the source IP, but
+# it ties svclb pod scheduling to where the app pod is, which adds churn on every
+# Recreate rollout - not worth it for an audit-log nicety on a LAN-only service.
+apiVersion: v1
+kind: Service
+metadata:
+  name: forgejo-ssh
+  labels:
+    app: forgejo
+spec:
+  type: LoadBalancer
+  selector:
+    app: forgejo
+  ports:
+    - name: ssh
+      protocol: TCP
+      port: 2222
+      targetPort: 2222

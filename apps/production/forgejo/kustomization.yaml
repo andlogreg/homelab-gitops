@@ -5,6 +5,7 @@ resources:
   - ../../base/forgejo
   - external-secret.yaml
   - ingress.yaml
+  - service-ssh.yaml
 
 patches:
   - path: velero_backup_patch.yaml
