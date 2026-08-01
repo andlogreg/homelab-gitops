@@ -3,6 +3,7 @@ kind: Kustomization
 namespace: forgejo
 resources:
   - ../../base/forgejo
+  - external-secret.yaml
   - ingress.yaml
 
 patches:
