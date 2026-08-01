@@ -6,4 +6,4 @@ spec:
   template:
     metadata:
       annotations:
-        backup.velero.io/backup-volumes: forgejo-data,forgejo-config
+        backup.velero.io/backup-volumes: forgejo-data

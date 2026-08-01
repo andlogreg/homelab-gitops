@@ -75,8 +75,6 @@ spec:
         volumeMounts:
         - mountPath: /var/lib/gitea
           name: forgejo-data
-        - mountPath: /etc/gitea
-          name: forgejo-config
       containers:
       - name: forgejo
         image: data.forgejo.org/forgejo/forgejo:14.0.5-rootless
@@ -140,24 +138,7 @@ spec:
         volumeMounts:
         - mountPath: /var/lib/gitea
           name: forgejo-data
-        - mountPath: /etc/gitea
-          name: forgejo-config
-      # initContainers:
-      # - command:
-      #   - sh
-      #   - -c
-      #   - chown -R 1000:1000 /etc/gitea
-      #   image: busybox:1.37
-      #   name: fix-permissions
-      #   securityContext:
-      #     runAsUser: 0
-      #   volumeMounts:
-      #   - mountPath: /etc/gitea
-      #     name: forgejo-config
       volumes:
       - name: forgejo-data
         persistentVolumeClaim:
           claimName: forgejo-data
-      - name: forgejo-config
-        persistentVolumeClaim:
-          claimName: forgejo-config
