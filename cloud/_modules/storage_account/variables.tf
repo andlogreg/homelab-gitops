@@ -32,6 +32,16 @@ variable "is_hns_enabled" {
   default     = false
 }
 
+variable "shared_access_key_enabled" {
+  description = <<-EOT
+    Whether Shared Key (account key) auth is permitted at all. Defaults to true so existing
+    accounts that still have a consumer on the key are unaffected. Set to false at creation for
+    any account that should never have a working key-based credential from birth.
+  EOT
+  type        = bool
+  default     = true
+}
+
 variable "containers" {
   description = "List of containers to create in the storage account."
   type        = list(string)

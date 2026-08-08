@@ -9,6 +9,7 @@ resource "azurerm_storage_account" "storage" {
   https_traffic_only_enabled = true
   min_tls_version            = "TLS1_2"
   is_hns_enabled             = var.is_hns_enabled
+  shared_access_key_enabled  = var.shared_access_key_enabled
   tags                       = var.tags
 
   # Emitted only when the rules actually restrict something (see the variable's description).
