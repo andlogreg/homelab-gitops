@@ -1,0 +1,22 @@
+apiVersion: postgresql.cnpg.io/v1
+kind: ScheduledBackup
+metadata:
+  name: health-db-scheduled-backup
+spec:
+  # Six-field cron (leading field is SECONDS), evaluated in the operator pod's time zone --
+  # which is UTC, since that pod sets no TZ. Measured, because the CNPG documentation does not
+  # state it anywhere: the other two scheduled backups fire at exactly 03:00:00Z and 04:00:00Z
+  # while local time is UTC+1. Two consequences. The window is an hour earlier in local wall-clock
+  # terms during winter, and -- the reason this is worth a comment -- a clock change can never skip
+  # a run or fire one twice, which is the failure mode of a local-time schedule.
+  #
+  # 02:00 keeps the four backup lanes an hour apart: this one, then the other two Postgres
+  # clusters at 03:00 and 04:00, then the Velero file backup at 05:00.
+  schedule: "0 0 2 * * *"  # At 2am every day
+  backupOwnerReference: self
+  cluster:
+    name: health-db-00
+  immediate: true
+  method: plugin
+  pluginConfiguration:
+    name: barman-cloud.cloudnative-pg.io

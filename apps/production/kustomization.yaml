@@ -3,6 +3,7 @@ kind: Kustomization
 resources:
   - cloudflared
   - forgejo
+  - health
   - homarr
   - linkding
   - litellm

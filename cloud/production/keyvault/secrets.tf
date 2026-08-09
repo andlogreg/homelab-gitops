@@ -34,3 +34,27 @@ resource "azurerm_key_vault_secret" "mealie_db_credentials_password" {
   # NOTE: workaround, we need to wait for the role assignment to be ready
   depends_on = [module.keyvault]
 }
+
+#### Health Secrets ####
+resource "random_password" "health_db_credentials_password" {
+  length  = 40
+  special = true
+
+  # Same alphabet, same reason as mealie above: this value is interpolated into a
+  # PostgreSQL connection URI by the ExternalSecret template with no percent-encoding,
+  # so `@` and `%` both break it and neither breaks it loudly.
+  override_special = "!#$&*()-_=+[]{}<>:?"
+
+  keepers = {
+    rotation_time = time_rotating.secret_rotation.id
+  }
+}
+
+resource "azurerm_key_vault_secret" "health_db_credentials_password" {
+  name         = "health-db-credentials-password"
+  value        = random_password.health_db_credentials_password.result
+  key_vault_id = module.keyvault.id
+
+  # NOTE: workaround, we need to wait for the role assignment to be ready
+  depends_on = [module.keyvault]
+}

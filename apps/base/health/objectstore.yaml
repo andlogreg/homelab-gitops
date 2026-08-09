@@ -1,0 +1,50 @@
+apiVersion: barmancloud.cnpg.io/v1
+kind: ObjectStore
+metadata:
+  name: health-db-objectstore
+spec:
+  configuration:
+    destinationPath: "https://${STORAGE_ACCOUNT_NAME}.blob.core.windows.net/cnpg-backups/health"
+    azureCredentials:
+      # useDefaultAzureCredentials, NOT inheritFromAzureAD. The CRD offers both as "use Azure AD"
+      # and they are not interchangeable: inheritFromAzureAD makes the plugin pass
+      # `--credential managed-identity`, so barman builds a ManagedIdentityCredential and calls the
+      # IMDS endpoint at 169.254.169.254 -- which does not exist on bare-metal Kubernetes. This one
+      # passes `--credential default`, and DefaultAzureCredential begins with EnvironmentCredential,
+      # which reads the variables injected into the sidecar below.
+      #
+      # The identity behind these variables holds Storage Blob Data Contributor on the
+      # `cnpg-backups` CONTAINER, not on the storage account, so this new prefix needed no new role
+      # assignment -- and this workload still cannot reach the Velero backups or ARM.
+      useDefaultAzureCredentials: true
+    wal:
+      compression: gzip
+  # The plugin emits no credential environment on this path, and instanceSidecarConfiguration
+  # exposes `env` but no volumes, so container env is the only way in.
+  #
+  # CONSEQUENCE: env from secretKeyRef is resolved at pod start and never refreshes. Rotating this
+  # secret requires DELETING the instance pods. A CNPG restart annotation is NOT enough: it
+  # restarts PostgreSQL in place and leaves the pod, and therefore its env, untouched.
+  instanceSidecarConfiguration:
+    env:
+      - name: AZURE_CLIENT_ID
+        valueFrom:
+          secretKeyRef:
+            name: cnpg-backup-creds
+            key: AZURE_CLIENT_ID
+      - name: AZURE_TENANT_ID
+        valueFrom:
+          secretKeyRef:
+            name: cnpg-backup-creds
+            key: AZURE_TENANT_ID
+      - name: AZURE_CLIENT_SECRET
+        valueFrom:
+          secretKeyRef:
+            name: cnpg-backup-creds
+            key: AZURE_CLIENT_SECRET
+  # 14d matches the other Postgres workloads. Note what this retention does and does not cover:
+  # it prunes the barman base backups and WAL, and it is NOT the archive of record for the source
+  # data this database is derived from -- that lives in its own storage account with no lifecycle
+  # deletion at all. This store is rebuildable from it; the 14d window only bounds how far back a
+  # point-in-time recovery of the DERIVED store can reach.
+  retentionPolicy: "14d"

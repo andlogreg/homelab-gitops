@@ -1,0 +1,52 @@
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+# BACKUP GENERATION CONVENTION: the `-NN` suffix is the backup generation. The barman
+# plugin uses the Cluster name as the serverName, so each generation gets its own dir
+# under `cnpg-backups/health/<health-db-NN>/`. On every cluster REBUILD, bump NN
+# (-00 -> -01 -> ...) so the fresh cluster cannot overwrite the previous generation's
+# WAL/base, and point recovery's externalCluster serverName at the prior NN. Never reuse
+# a retired NN; prune a retired serverName dir only after the new generation is healthy.
+#
+# WHY THIS WORKLOAD GETS ITS OWN CLUSTER rather than a database on an existing one. The
+# resource argument for sharing does not hold and was measured: the two other Postgres
+# instances use ~29m CPU / ~101Mi and ~26m / ~97Mi on a 4 vCPU / 13.6 GiB node, and
+# consolidating saves zero scheduling capacity because none of them set resource requests.
+# The reasons to keep them apart are RESTORE GRANULARITY (barman's WAL archive is
+# per-server, so a shared instance cannot point-in-time recover one app without rolling
+# back the others), STATE LEAVING GIT (a shared instance means hand-managed CREATE DATABASE
+# and roles) and VERSION COUPLING. This dataset is also the one that cannot be regenerated
+# from any vendor, so it must not share a restore path with a recipe manager.
+metadata:
+  name: health-db-00
+spec:
+  instances: 1
+
+  # The instance pod already serves metrics on :9187; this only creates the PodMonitor
+  # that makes Prometheus scrape it. Needed for WAL-archiving alerting, which reads
+  # cnpg_pg_stat_archiver_* - those come from Postgres itself, so unlike the operator's
+  # cnpg_collector_last_available_backup_timestamp (which reads a permanent 0 under the
+  # barman-cloud PLUGIN, as opposed to the deprecated in-tree barmanObjectStore) they
+  # are actually populated. Base-backup freshness is watched separately, via
+  # kube-state-metrics custom-resource-state over the Backup CRs.
+  monitoring:
+    enablePodMonitor: true
+
+  bootstrap:
+    initdb:
+      database: health
+
+  # 5Gi, not the 1Gi the other two use, and the reason is the StorageClass rather than the
+  # data: local-path is the only one available and it has ALLOWVOLUMEEXPANSION=false, so a
+  # volume that fills up is a migration rather than a resize. The size is a nominal request
+  # on a hostPath directory -- it reserves nothing and costs nothing today -- so the only
+  # thing that matters is that it is not the number we regret. The store this holds is
+  # narrow (tens of thousands of normalized daily rows, not the raw sample-level archives,
+  # which stay outside the cluster).
+  storage:
+    size: 5Gi
+
+  plugins:
+    - name: barman-cloud.cloudnative-pg.io
+      isWALArchiver: true
+      parameters:
+        barmanObjectName: health-db-objectstore

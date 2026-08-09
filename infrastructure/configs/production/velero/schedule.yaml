@@ -5,8 +5,19 @@ metadata:
 spec:
   schedule: 0 5 * * *
   template:
+    # THIS LIST IS AN ALLOWLIST: a namespace that is not named here is invisible to backup, with
+    # no warning and no failing job. Adding the namespace is part of standing a stateful workload
+    # up, not a follow-up.
     includedNamespaces:
     - forgejo
+    # `health` holds a Postgres cluster and nothing else, and its data protection is the barman
+    # WAL + base archive, NOT this schedule. Kopia only copies volumes carrying the
+    # backup.velero.io/backup-volumes annotation, no pod there sets it, and a hot file copy of a
+    # running PostgreSQL data directory would not be a restorable backup if it did. So this entry
+    # captures the namespace's Kubernetes objects, and it is here so that a volume added to this
+    # namespace later is not silently outside the backup set. Do not read it as file coverage of
+    # the database.
+    - health
     - homarr
     - linkding
     - mealie
