@@ -80,7 +80,7 @@
           "editorMode": "code",
           "format": "time_series",
           "rawQuery": true,
-          "rawSql": "WITH bounds AS (\n  SELECT\n    floor(min(value_num) / 10.0) * 10.0 AS lower_bound,\n    ceil(max(value_num) / 10.0) * 10.0 AS upper_bound\n  FROM health.v_observation\n  WHERE record_type_code = 'body_mass'\n    AND $__timeFilter(start_utc)\n)\nSELECT $__timeFrom() AS time, lower_bound::double precision AS value, '__weight_axis_bounds__' AS metric\nFROM bounds\nUNION ALL\nSELECT $__timeTo() AS time, upper_bound::double precision AS value, '__weight_axis_bounds__' AS metric\nFROM bounds\nORDER BY 1"
+          "rawSql": "WITH bounds AS (\n  SELECT\n    floor(min(value_num) / 10.0) * 10.0 AS lower_bound,\n    ceil(max(value_num) / 10.0) * 10.0 AS upper_bound\n  FROM health.v_observation\n  WHERE record_type_code = 'body_mass'\n    AND $__timeFilter(start_utc)\n)\nSELECT $__timeFrom()::timestamptz AS time, lower_bound::double precision AS value, '__weight_axis_bounds__' AS metric\nFROM bounds\nUNION ALL\nSELECT $__timeTo()::timestamptz AS time, upper_bound::double precision AS value, '__weight_axis_bounds__' AS metric\nFROM bounds\nORDER BY 1"
         }
       ],
       "fieldConfig": {
