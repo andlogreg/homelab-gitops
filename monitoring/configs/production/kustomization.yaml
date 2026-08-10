@@ -5,6 +5,8 @@ resources:
   - scrapeconfig-proxmox-hosts.yaml
   - prometheusrule-ssd-wear.yaml
   - external-secret-alertmanager.yaml
+  - external-secret-health-db-grafana.yaml
+  - grafana-datasource-health.yaml
   - podmonitor-reloader.yaml
   - podmonitor-cloudflared.yaml
   - prometheusrule-backups.yaml
@@ -27,6 +29,13 @@ configMapGenerator:
   - name: grafana-dashboard-backups
     files:
       - backups.json=dashboards/backups.json
+    options:
+      labels:
+        grafana_dashboard: "1"
+      disableNameSuffixHash: true
+  - name: grafana-dashboard-health-trends
+    files:
+      - health-trends.json=dashboards/health-trends.json
     options:
       labels:
         grafana_dashboard: "1"

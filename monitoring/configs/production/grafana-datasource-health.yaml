@@ -1,0 +1,33 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-datasource-health
+  labels:
+    # The kube-prometheus-stack datasource sidecar imports labelled ConfigMaps
+    # and asks Grafana to reload provisioning after an update.
+    grafana_datasource: "1"
+data:
+  health.yaml: |-
+    apiVersion: 1
+    datasources:
+      - name: Health
+        uid: health-postgres
+        type: postgres
+        access: proxy
+        url: health-db-00-rw.health:5432
+        user: health_grafana
+        isDefault: false
+        editable: false
+        jsonData:
+          database: health
+          sslmode: require
+          postgresVersion: 1000
+          timescaledb: false
+          maxOpenConns: 5
+          maxIdleConns: 2
+          maxIdleConnsAuto: false
+          connMaxLifetime: 14400
+        secureJsonData:
+          # The one-pass $VAR form preserves a literal '$' if the generated
+          # password contains one; the secret value never appears in Git.
+          password: $HEALTH_DB_GRAFANA_PASSWORD

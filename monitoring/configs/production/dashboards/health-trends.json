@@ -1,0 +1,240 @@
+{
+  "annotations": { "list": [] },
+  "description": "The honest default for the first health-data slice: weight on actual measurement instants and sleep summed by wake date. Source is always visible; the device label defaults to stable device era and can be switched to the raw source/device name. Missing rows stay missing, self-reported values stay labelled, and no query touches excluded or nested-stage data.",
+  "editable": true,
+  "graphTooltip": 1,
+  "refresh": false,
+  "schemaVersion": 39,
+  "tags": ["health-data", "weight", "sleep", "homelab"],
+  "templating": {
+    "list": [
+      {
+        "name": "device_label",
+        "label": "Device label",
+        "description": "Device era is stable across renames. Raw source/device name shows the archive's own label and may split or join renamed devices.",
+        "type": "custom",
+        "query": "Device era : era,Raw source/device name : raw",
+        "current": {
+          "selected": true,
+          "text": "Device era",
+          "value": "era"
+        },
+        "options": [
+          {
+            "selected": true,
+            "text": "Device era",
+            "value": "era"
+          },
+          {
+            "selected": false,
+            "text": "Raw source/device name",
+            "value": "raw"
+          }
+        ],
+        "includeAll": false,
+        "multi": false,
+        "hide": 0,
+        "skipUrlSync": false
+      }
+    ]
+  },
+  "time": {
+    "from": "2015-01-01T00:00:00.000Z",
+    "to": "now"
+  },
+  "timepicker": {
+    "refresh_intervals": ["5m", "15m", "30m", "1h", "6h", "12h", "1d"]
+  },
+  "timezone": "browser",
+  "title": "Health Trends",
+  "uid": "health-trends",
+  "panels": [
+    {
+      "id": 1,
+      "type": "timeseries",
+      "title": "Weight — measured shape over time",
+      "description": "One point per stored observation at its real measurement instant. There is no daily fill and no Power Sync data in the store. The self-reported suffix is data provenance, not a heuristic. Lines disconnect across gaps longer than 180 days, while the stable device-era label prevents the 2015 no-device island from being stitched to Aria 2.",
+      "gridPos": { "h": 12, "w": 24, "x": 0, "y": 0 },
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "health-postgres"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "health-postgres"
+          },
+          "editorMode": "code",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT\n  start_utc AS time,\n  value_num::double precision AS value,\n  concat_ws(\n    ' · ',\n    source,\n    CASE ${device_label:sqlstring}\n      WHEN 'era' THEN COALESCE(device, 'No device stated')\n      WHEN 'raw' THEN COALESCE(NULLIF(raw_source_name, ''), 'No raw source/device name')\n    END,\n    CASE WHEN value_provenance = 'self_reported' THEN 'self-reported' END\n  ) AS metric\nFROM health.v_observation\nWHERE record_type_code = 'body_mass'\n  AND $__timeFilter(start_utc)\nORDER BY 1"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "health-postgres"
+          },
+          "editorMode": "code",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "WITH bounds AS (\n  SELECT\n    floor(min(value_num) / 10.0) * 10.0 AS lower_bound,\n    ceil(max(value_num) / 10.0) * 10.0 AS upper_bound\n  FROM health.v_observation\n  WHERE record_type_code = 'body_mass'\n    AND $__timeFilter(start_utc)\n)\nSELECT $__timeFrom() AS time, lower_bound::double precision AS value, '__weight_axis_bounds__' AS metric\nFROM bounds\nUNION ALL\nSELECT $__timeTo() AS time, upper_bound::double precision AS value, '__weight_axis_bounds__' AS metric\nFROM bounds\nORDER BY 1"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "masskg",
+          "decimals": 1,
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "kg",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": 15552000000,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 4,
+            "scaleDistribution": { "type": "linear" },
+            "showPoints": "always",
+            "spanNulls": false,
+            "stacking": { "group": "A", "mode": "none" },
+            "thresholdsStyle": { "mode": "off" }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [{ "color": "green", "value": null }]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byRegexp", "options": "/self-reported/" },
+            "properties": [
+              { "id": "custom.pointSize", "value": 7 },
+              {
+                "id": "custom.lineStyle",
+                "value": { "dash": [6, 6], "fill": "dash" }
+              }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "__weight_axis_bounds__" },
+            "properties": [
+              { "id": "custom.lineWidth", "value": 0 },
+              { "id": "custom.showPoints", "value": "never" },
+              {
+                "id": "custom.hideFrom",
+                "value": { "legend": true, "tooltip": true, "viz": false }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": { "mode": "multi", "sort": "none" }
+      }
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "Sleep — total asleep time by wake date",
+      "description": "Session minutes are summed within wake date, source, route and device. Naps therefore add to their day; nested stages are not queried. Source remains visible in every label, so the concurrent Apple and Samsung period stays as two series. A gap of one missing day is disconnected, including the real 27-day April 2019 gap and the empty 2017–2018 interval.",
+      "gridPos": { "h": 12, "w": 24, "x": 0, "y": 12 },
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "health-postgres"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "health-postgres"
+          },
+          "editorMode": "code",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "WITH labelled AS (\n  SELECT\n    local_date::timestamp AS time,\n    source_code,\n    route,\n    device_era,\n    value_provenance,\n    value_num,\n    concat_ws(\n      ' · ',\n      source,\n      CASE ${device_label:sqlstring}\n        WHEN 'era' THEN COALESCE(device, 'No device stated')\n        WHEN 'raw' THEN COALESCE(NULLIF(raw_source_name, ''), 'No raw source/device name')\n      END,\n      CASE WHEN value_provenance <> 'measured' THEN replace(value_provenance::text, '_', '-') END\n    ) AS metric\n  FROM health.v_observation\n  WHERE record_type_code = 'sleep_session'\n    AND local_date BETWEEN $__timeFrom()::date AND $__timeTo()::date\n)\nSELECT\n  time,\n  (sum(value_num) / 60.0)::double precision AS value,\n  metric\nFROM labelled\nGROUP BY time, metric, source_code, route, device_era, value_provenance\nORDER BY 1, 3"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "h",
+          "decimals": 1,
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "hours",
+            "axisPlacement": "auto",
+            "axisSoftMin": 0,
+            "axisSoftMax": 12,
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": 129600000,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 3,
+            "scaleDistribution": { "type": "linear" },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": { "group": "A", "mode": "none" },
+            "thresholdsStyle": { "mode": "off" }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [{ "color": "green", "value": null }]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byRegexp", "options": "/self-reported|derived/" },
+            "properties": [
+              { "id": "custom.pointSize", "value": 6 },
+              { "id": "custom.showPoints", "value": "always" },
+              {
+                "id": "custom.lineStyle",
+                "value": { "dash": [6, 6], "fill": "dash" }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": { "mode": "multi", "sort": "none" }
+      }
+    }
+  ]
+}

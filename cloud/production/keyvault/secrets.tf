@@ -58,3 +58,31 @@ resource "azurerm_key_vault_secret" "health_db_credentials_password" {
   # NOTE: workaround, we need to wait for the role assignment to be ready
   depends_on = [module.keyvault]
 }
+
+# Grafana never receives the write-capable health application credential. This
+# password belongs to a separate LOGIN role whose only membership is the
+# NOLOGIN health_read group. It rotates on the same schedule as the database
+# application credentials; External Secrets delivers it to both namespaces and
+# Reloader restarts Grafana after the monitoring copy changes.
+resource "random_password" "health_db_grafana_password" {
+  length  = 40
+  special = true
+
+  # The password is injected directly into Grafana's datasource provisioning
+  # through an environment variable. Keep the estate's URI-safe alphabet so a
+  # future consumer cannot silently misparse the same value in a connection URI.
+  override_special = "!#$&*()-_=+[]{}<>:?"
+
+  keepers = {
+    rotation_time = time_rotating.secret_rotation.id
+  }
+}
+
+resource "azurerm_key_vault_secret" "health_db_grafana_password" {
+  name         = "health-db-grafana-password"
+  value        = random_password.health_db_grafana_password.result
+  key_vault_id = module.keyvault.id
+
+  # NOTE: workaround, we need to wait for the role assignment to be ready
+  depends_on = [module.keyvault]
+}

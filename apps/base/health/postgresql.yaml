@@ -21,6 +21,29 @@ metadata:
 spec:
   instances: 1
 
+  managed:
+    roles:
+      # The dashboard boundary is enforced by PostgreSQL, not by a convention
+      # in Grafana. This role inherits only the SELECT grants held by the
+      # NOLOGIN health_read group created by homelab-health migration 005.
+      - name: health_grafana
+        ensure: present
+        login: true
+        inherit: true
+        superuser: false
+        createdb: false
+        createrole: false
+        replication: false
+        bypassrls: false
+        # A Grafana rollout can briefly run two pods. Each datasource is capped
+        # at five open connections, so ten avoids deadlocking the rollout while
+        # retaining a hard ceiling.
+        connectionLimit: 10
+        inRoles:
+          - health_read
+        passwordSecret:
+          name: health-db-grafana
+
   # The instance pod already serves metrics on :9187; this only creates the PodMonitor
   # that makes Prometheus scrape it. Needed for WAL-archiving alerting, which reads
   # cnpg_pg_stat_archiver_* - those come from Postgres itself, so unlike the operator's
