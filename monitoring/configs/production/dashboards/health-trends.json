@@ -240,7 +240,7 @@
       "id": 3,
       "type": "timeseries",
       "title": "Resting HR — labelled device eras",
-      "description": "One vendor-computed observation at its stored local date, never a locally re-derived estimate. Source and device era remain separate series: the 2015–2016 Fitbit island cannot join the post-2018 era, the 2017–2018 absence stays empty, and Apple's three physical watches remain three default series. Gaps longer than 36 hours disconnect the line, including Samsung's missing dates.",
+      "description": "One vendor-computed observation at its route-native display instant: Apple intervals at their stored end, point routes at their start, and never a locally re-derived estimate. Source and device era remain separate series: the 2015–2016 Fitbit island cannot join the post-2018 era, the 2017–2018 absence stays empty, and Apple's three physical watches remain three default series. Gaps longer than 36 hours disconnect the line, including Samsung's missing dates.",
       "gridPos": { "h": 12, "w": 24, "x": 0, "y": 24 },
       "datasource": {
         "type": "grafana-postgresql-datasource",
@@ -256,7 +256,7 @@
           "editorMode": "code",
           "format": "time_series",
           "rawQuery": true,
-          "rawSql": "SELECT\n  local_date::timestamp AS time,\n  value_num::double precision AS value,\n  concat_ws(\n    ' · ',\n    source,\n    CASE ${device_label:sqlstring}\n      WHEN 'era' THEN COALESCE(device, 'No device stated')\n      WHEN 'raw' THEN COALESCE(NULLIF(raw_source_name, ''), 'No raw source/device name')\n    END,\n    CASE WHEN value_provenance <> 'measured' THEN replace(value_provenance::text, '_', '-') END\n  ) AS metric\nFROM health.v_observation\nWHERE record_type_code = 'resting_heart_rate'\n  AND local_date BETWEEN $__timeFrom()::date AND $__timeTo()::date\nORDER BY 1, 3"
+          "rawSql": "SELECT\n  COALESCE(end_utc, start_utc) AS time,\n  value_num::double precision AS value,\n  concat_ws(\n    ' · ',\n    source,\n    CASE ${device_label:sqlstring}\n      WHEN 'era' THEN COALESCE(device, 'No device stated')\n      WHEN 'raw' THEN COALESCE(NULLIF(raw_source_name, ''), 'No raw source/device name')\n    END,\n    CASE WHEN value_provenance <> 'measured' THEN replace(value_provenance::text, '_', '-') END\n  ) AS metric\nFROM health.v_observation\nWHERE record_type_code = 'resting_heart_rate'\n  AND local_date BETWEEN $__timeFrom()::date AND $__timeTo()::date\nORDER BY 1, 3"
         }
       ],
       "fieldConfig": {
