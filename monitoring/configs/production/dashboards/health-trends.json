@@ -398,6 +398,109 @@
         },
         "tooltip": { "mode": "multi", "sort": "none" }
       }
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "Body fat — device-bounded BIA estimates",
+      "description": "Exact published body-fat percentages at their real observation instants. Aria 2 and Galaxy Watch7 remain separate derived BIA series; five unattributed Apple Health entries remain self-reported context. No interpolation, cross-device precedence, calibration or clinical target band is applied. Lines disconnect after 180 days, and hidden selected-window context points round the observed range outward to 5% without committing personal bounds.",
+      "gridPos": { "h": 12, "w": 24, "x": 0, "y": 48 },
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "health-postgres"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "health-postgres"
+          },
+          "editorMode": "code",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT\n  start_utc AS time,\n  value_num::double precision AS value,\n  concat_ws(\n    ' · ',\n    source,\n    CASE ${device_label:sqlstring}\n      WHEN 'era' THEN COALESCE(device, 'No device stated')\n      WHEN 'raw' THEN COALESCE(NULLIF(raw_source_name, ''), 'No raw source/device name')\n    END,\n    replace(value_provenance::text, '_', '-')\n  ) AS metric\nFROM health.v_observation\nWHERE record_type_code = 'body_fat'\n  AND $__timeFilter(start_utc)\nORDER BY 1, 3"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "health-postgres"
+          },
+          "editorMode": "code",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "WITH bounds AS (\n  SELECT\n    floor(min(value_num) / 5.0) * 5.0 AS lower_bound,\n    ceil(max(value_num) / 5.0) * 5.0 AS upper_bound\n  FROM health.v_observation\n  WHERE record_type_code = 'body_fat'\n    AND $__timeFilter(start_utc)\n)\nSELECT $__timeFrom()::timestamptz AS time, lower_bound::double precision AS value, '__body_fat_axis_bounds__' AS metric\nFROM bounds\nUNION ALL\nSELECT $__timeTo()::timestamptz AS time, upper_bound::double precision AS value, '__body_fat_axis_bounds__' AS metric\nFROM bounds\nORDER BY 1"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "decimals": 1,
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "%",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": 15552000000,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 4,
+            "scaleDistribution": { "type": "linear" },
+            "showPoints": "always",
+            "spanNulls": false,
+            "stacking": { "group": "A", "mode": "none" },
+            "thresholdsStyle": { "mode": "off" }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [{ "color": "green", "value": null }]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byRegexp", "options": "/self-reported/" },
+            "properties": [
+              { "id": "custom.pointSize", "value": 7 },
+              {
+                "id": "custom.lineStyle",
+                "value": { "dash": [6, 6], "fill": "dash" }
+              }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "__body_fat_axis_bounds__" },
+            "properties": [
+              { "id": "custom.lineWidth", "value": 0 },
+              { "id": "custom.showPoints", "value": "never" },
+              {
+                "id": "custom.hideFrom",
+                "value": { "legend": true, "tooltip": true, "viz": false }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": { "mode": "multi", "sort": "none" }
+      }
     }
   ]
 }
