@@ -68,6 +68,17 @@ spec:
         ruleSelectorNilUsesHelmValues: false
         ruleSelector: {}
         ruleNamespaceSelector: {}
+        # Probe was the LAST selector still sitting at the chart default, and it
+        # bit exactly as the PodMonitor comment above predicts. The HomeAssistant
+        # Probe applied cleanly, `kubectl get probe` listed it, Flux reported the
+        # Kustomization healthy - and Prometheus scraped it zero times, because
+        # this selector still demanded release=kube-prometheus-stack. An object
+        # that matches nothing is indistinguishable from one that is working;
+        # the only thing that catches it is querying for the series it should
+        # be producing.
+        probeSelectorNilUsesHelmValues: false
+        probeSelector: {}
+        probeNamespaceSelector: {}
         # Tame writes onto the low-endurance host SSDs: a 60s scrape/eval interval
         # roughly halves ingest vs the 30s default, and bound the ephemeral TSDB.
         scrapeInterval: 60s
