@@ -1,0 +1,24 @@
+apiVersion: monitoring.coreos.com/v1
+kind: Probe
+metadata:
+  name: homeassistant
+  namespace: monitoring
+spec:
+  # Explicit, so the job label is a name a rule can be written against instead
+  # of the operator's generated "probe/<namespace>/<name>".
+  jobName: homeassistant
+  interval: 60s
+  scrapeTimeout: 10s
+  module: http_2xx
+  prober:
+    url: blackbox-exporter:9115
+    path: /probe
+  targets:
+    staticConfig:
+      static:
+        # The HAOS appliance on the always-on plane. Unauthenticated GET on /
+        # returns 200 (it returns 200 while HA is still starting up, too, which
+        # is the wanted behaviour - "the process is alive" is the question).
+        # Deliberately an IP, not homeassistant.lan: resolving through Pihole
+        # would make a DNS outage look like an HA outage.
+        - http://192.168.0.250:8123/

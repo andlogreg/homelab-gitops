@@ -1,0 +1,41 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: homeassistant
+  namespace: monitoring
+  labels:
+    app.kubernetes.io/part-of: monitoring
+spec:
+  groups:
+    - name: homeassistant
+      rules:
+        # HomeAssistant is the one always-on, household-affecting service that
+        # ran with no monitoring at all. This is deliberately the ONLY thing
+        # watched about it: a liveness probe needs no credential on the
+        # appliance and nothing installed on it, and "HA is not serving" is the
+        # single signal anyone would act on. Everything richer - the recorder,
+        # add-on state, the Zigbee coordinator - was considered and declined:
+        # it needs a standing access grant, and none of it changes what gets
+        # done in the moment.
+        #
+        # The absent() arm is not optional. If the Probe or the prober is ever
+        # removed, probe_success stops returning a series and a bare "== 0"
+        # goes quiet in exactly the same way a healthy service does. A rule
+        # that cannot tell "fine" from "no longer watching" is the failure this
+        # alert was written to end.
+        #
+        # 15m is chosen against routine restarts, not against outage tolerance:
+        # a core restart or an OS update takes the appliance away for a couple
+        # of minutes, and paging for that is how a channel gets ignored.
+        - alert: HomeAssistantDown
+          expr: 'probe_success{job="homeassistant"} == 0 or absent(probe_success{job="homeassistant"})'
+          for: 15m
+          labels:
+            severity: warning
+          annotations:
+            summary: "HomeAssistant is not responding"
+            description: >-
+              The HAOS appliance has not served an HTTP 200 for 15 minutes.
+              Lights, automations and the Zigbee network are down with it. The
+              VM is pinned to david-i by the USB Zigbee dongle, so check that
+              host first; the dongle move is the node-failover runbook.

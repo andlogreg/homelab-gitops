@@ -1,6 +1,9 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
+  # Production-only: its single target is the HomeAssistant appliance on the
+  # always-on plane, and only production notifies.
+  - blackbox-exporter
   - grafana-charts
   - k8s-monitoring
   - kube-prometheus-stack

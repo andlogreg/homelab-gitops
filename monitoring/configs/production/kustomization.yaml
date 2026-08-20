@@ -15,6 +15,10 @@ resources:
   # in this overlay alone. The backup rules above are shared with staging.
   - prometheusrule-proxmox-hosts.yaml
   - prometheusrule-workloads.yaml
+  # The HomeAssistant liveness probe and its rule: production-only, because
+  # this is the always-on plane and only production notifies.
+  - probe-homeassistant.yaml
+  - prometheusrule-homeassistant.yaml
 
 # Dashboard-as-code: the kube-prometheus-stack Grafana sidecar auto-imports
 # ConfigMaps labelled grafana_dashboard=1 from the monitoring namespace.

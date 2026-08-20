@@ -91,6 +91,16 @@ spec:
               matchers:
                 - alertname = "KubeJobFailed"
               repeat_interval: 24h
+            # The household's automation appliance is unreachable. Routed by
+            # alertname because it is a warning and the severity route below
+            # does not reach it - and it is a warning on purpose: losing lights
+            # and automations overnight is a morning problem, not a 2 a.m. one.
+            # The 24h repeat nags daily until it is dealt with rather than
+            # hourly, the same shape as SsdWearHigh above.
+            - receiver: telegram
+              matchers:
+                - alertname = "HomeAssistantDown"
+              repeat_interval: 24h
             - receiver: telegram
               matchers:
                 - severity = "critical"

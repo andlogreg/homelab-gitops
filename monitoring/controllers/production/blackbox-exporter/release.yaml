@@ -1,0 +1,57 @@
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: blackbox-exporter
+spec:
+  interval: 12h
+  chart:
+    spec:
+      chart: prometheus-blackbox-exporter
+      version: "11.17.2"
+      sourceRef:
+        kind: HelmRepository
+        # Deliberately reusing the existing prometheus-community source rather
+        # than declaring a second one at the same URL. The name is the chart it
+        # was first added for, not a scope - one HelmRepository per upstream
+        # index is the point, otherwise Flux fetches the same index twice.
+        name: kube-prometheus-stack
+      interval: 12h
+  values:
+    # Predictable Service name for the Probe's prober.url below. Without this
+    # the chart builds "<release>-<chart>", and the Probe would silently point
+    # at nothing if the release were ever renamed.
+    fullnameOverride: blackbox-exporter
+
+    # This exporter exists to answer one question - is the always-on plane's
+    # HomeAssistant appliance serving? - so it carries no ServiceMonitor of its
+    # own. Scraping the prober's own metrics would add a target nothing has a
+    # rule for, which is data rather than monitoring.
+    serviceMonitor:
+      enabled: false
+
+    # The chart ships no alerts of its own; ours live with the other
+    # production rules in monitoring/configs/.
+    prometheusRule:
+      enabled: false
+
+    resources:
+      requests:
+        cpu: 10m
+        memory: 32Mi
+      limits:
+        memory: 64Mi
+
+    config:
+      modules:
+        http_2xx:
+          prober: http
+          timeout: 5s
+          http:
+            method: GET
+            # The appliance is reached by IPv4 literal, and it also holds a
+            # SLAAC address. Pinning the family keeps a probe failure meaning
+            # "the service is down" rather than "the other stack was tried".
+            preferred_ip_protocol: ip4
+            ip_protocol_fallback: false
+            valid_status_codes: []   # any 2xx
+            follow_redirects: true
