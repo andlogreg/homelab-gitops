@@ -4,3 +4,63 @@ namespace: ollama
 resources:
   - ../../base/ollama
   - ingress.yaml
+
+# These settings live in this overlay rather than in base on purpose. Three other overlays
+# share that base and patch the GPU request to 0, and every value below is sized for a 24 GB
+# card -- a 64k context with a quantized KV cache is the wrong shape for a CPU-only pod.
+configMapGenerator:
+  - name: ollama-config
+    literals:
+      # Agentic coding clients need a large context and fail *quietly* without one: the server
+      # silently truncates instead of erroring, and the symptom is an agent that loops or
+      # forgets its own tool output rather than an error anyone can see. The documented floor
+      # for these clients is 64k. Note the default is not a fixed 4096 on current versions --
+      # it is derived from visible VRAM, and a 24 GB card lands below this figure -- so it has
+      # to be set explicitly rather than left to the runtime.
+      - OLLAMA_CONTEXT_LENGTH=65536
+      # Weights for a 27B-class model at 4-bit leave only a few GB for the KV cache, which is
+      # what actually binds at this context length. q8_0 roughly halves that cache for a
+      # negligible quality cost. This requires flash attention below -- setting it alone is
+      # silently ignored.
+      - OLLAMA_KV_CACHE_TYPE=q8_0
+      - OLLAMA_FLASH_ATTENTION=1
+      # An agentic session is many short turns separated by the operator reading a diff. At the
+      # 5-minute default the model is evicted between turns and every turn pays a full reload
+      # from disk, which dominates wall-clock time on a model this size. Latency between turns
+      # is the thing that decides whether a local model gets reached for at all.
+      - OLLAMA_KEEP_ALIVE=30m
+
+patches:
+  - target:
+      kind: Deployment
+      name: ollama
+    patch: |-
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: ollama
+      spec:
+        template:
+          spec:
+            containers:
+              - name: ollama
+                envFrom:
+                  - configMapRef:
+                      name: ollama-config
+  # Sized for holding several candidate models side by side while they are compared on the
+  # same task; the shared base is deliberately left small for the CPU-only clusters. This
+  # StorageClass does NOT allow volume expansion, so growing it later means deleting and
+  # recreating the volume and re-pulling every model -- which is the reason to pick a roomy
+  # number once rather than to trim it.
+  - target:
+      kind: PersistentVolumeClaim
+      name: ollama-data
+    patch: |-
+      apiVersion: v1
+      kind: PersistentVolumeClaim
+      metadata:
+        name: ollama-data
+      spec:
+        resources:
+          requests:
+            storage: 100Gi
