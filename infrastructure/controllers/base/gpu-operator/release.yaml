@@ -11,7 +11,7 @@ spec:
       # only after it was proved against the real passed-through RTX 4090 - the
       # major had been held specifically because helios is the only consumer and
       # was powered off, so nobody could verify it.
-      version: v26.3.3
+      version: v26.7.0
       sourceRef:
         kind: HelmRepository
         name: gpu-operator
