@@ -3,4 +3,13 @@ kind: Kustomization
 resources:
   - ollama
   - open-webui
-  - vllm
+  # Deployed only for a like-for-like comparison against the runtime above, on the one GPU this
+  # host has. The comparison is finished and the everyday runtime won it, so this is commented
+  # out rather than left running: with pruning on, removing it from this list garbage-collects
+  # the namespace, the deployment and the volume together, which is the intended clean-up.
+  #
+  # The overlay it points at is kept, and it is worth reading before re-enabling: every flag in
+  # it is annotated with what that flag actually cost or bought when measured on this card,
+  # including the two settings whose defaults do not work here. Re-enabling means paying the
+  # ~21 GB model download again, which is the least reliable step in the whole bring-up.
+  # - vllm
