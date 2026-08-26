@@ -78,13 +78,21 @@ configMapGenerator:
       #   workload here is ONE interactive user, so 1024 slots buy nothing that could ever be
       #   used; the batching those slots exist to serve is exactly the feature that is inert
       #   at a concurrency of one.
-      # --enforce-eager: disables CUDA graph capture. Graphs are a decode-latency optimization
-      #   and they cost a reserved memory pool to hold the captured graphs -- on a card with
-      #   only a few hundred MiB of slack that pool competes directly with the token cache,
-      #   which is the thing that decides whether a usable context fits. Upstream's own
-      #   configuration for a 32 GB consumer card sets this, and that card has more headroom
-      #   than this one. It is a REAL cost to decode throughput and must be reported as such
-      #   rather than quietly enjoyed as if the comparison were like-for-like.
+      # --enforce-eager: disables CUDA graph capture, and BOTH halves of that trade have now
+      #   been measured rather than assumed. Upstream's own configuration for a 32 GB consumer
+      #   card sets it too, and that card has more headroom than this one.
+      #     What it buys: ~2.6 GiB. Turning capture back on left only 0.14 GiB of token cache,
+      #     and the engine refused to start -- it needs 1.29 GiB to hold even a single 32k
+      #     conversation. Note where that 2.6 GiB actually goes: only 0.48 GiB is the captured
+      #     graph pool; the rest is a much higher profiled activation peak once the model is
+      #     compiled (2.95 GiB against 0.39 GiB eager). Calling it "the graph pool" is wrong.
+      #     What it costs: ~40% of decode throughput. Measured on the identical prompt, same
+      #     card, same checkpoint: 49.7 tok/s with capture on, 29.3 tok/s with it off (short
+      #     prompt: 51.2 vs 29.0). That is a real, large penalty and must be reported alongside
+      #     any claim about the context window, not quietly enjoyed as if it were free.
+      #   The two cannot both be had on 24 GB: capture is affordable only at a window small
+      #   enough (16k) that an agentic client then fails outright. That is the actual trade
+      #   this card imposes, and it is why the slower option is the one deployed here.
       # --gpu-memory-utilization 0.92: this is the runtime's own default, arrived at the long
       #   way round. It is NOT a fix for a start-up OOM -- it does not change the peak above;
       #   it is the budget the token cache is sized against afterwards, and at 0.90 that budget
@@ -108,7 +116,7 @@ configMapGenerator:
       # Deliberately NOT set: --trust-remote-code (this is a third-party quantization, and the
       #   flag executes code from the checkpoint), and --max-num-batched-tokens (the old value
       #   of 1024 throttles prefill hard, which is one of the things being measured).
-      - 'VLLM_ARGS=--language-model-only --kv-cache-dtype fp8 --enable-prefix-caching --reasoning-parser qwen3 --enable-auto-tool-choice --tool-call-parser qwen3_coder --max-model-len 16384 --max-num-seqs 4 --gpu-memory-utilization 0.95 --port 8000'
+      - 'VLLM_ARGS=--language-model-only --kv-cache-dtype fp8 --enable-prefix-caching --reasoning-parser qwen3 --enable-auto-tool-choice --tool-call-parser qwen3_coder --max-model-len 65536 --max-num-seqs 4 --enforce-eager --gpu-memory-utilization 0.92 --port 8000'
 
 patches:
   - target:
