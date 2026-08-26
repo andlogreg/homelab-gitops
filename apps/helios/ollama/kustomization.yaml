@@ -47,6 +47,32 @@ patches:
                 envFrom:
                   - configMapRef:
                       name: ollama-config
+  # TEMPORARY, and it must be reverted. This host has ONE GPU and the neighbouring inference
+  # runtime is being brought up on the same card for a like-for-like comparison; the two cannot
+  # share it, because each sizes itself to take almost the whole card. Scaling to zero here
+  # hands the card over cleanly.
+  #
+  # It is done in git, NOT with `kubectl scale`, and that distinction is the whole point of
+  # this comment. This path is reconciled every 10 minutes with pruning on, and `replicas: 1`
+  # is what the base declares - so an imperative scale is silently undone within ten minutes,
+  # in the middle of a multi-gigabyte model download, leaving two servers fighting over one
+  # card. The reconciler always wins; the only durable way to stop a workload here is to say
+  # so in the repository.
+  #
+  # Equally: do NOT achieve this by removing the resource from the parent kustomization
+  # instead. Pruning would then garbage-collect this namespace along with the 100Gi volume
+  # below, which holds the hand-pulled models - those are deliberately not declarative and can
+  # only be re-fetched by hand. Patch the replica count; never delete the resource.
+  - target:
+      kind: Deployment
+      name: ollama
+    patch: |-
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: ollama
+      spec:
+        replicas: 0
   # Sized for holding several candidate models side by side while they are compared on the
   # same task; the shared base is deliberately left small for the CPU-only clusters. This
   # StorageClass does NOT allow volume expansion, so growing it later means deleting and
