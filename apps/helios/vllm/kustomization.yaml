@@ -66,12 +66,15 @@ configMapGenerator:
       #   the symptom is an agent that loops or forgets its own tool output, not an error.
       #   Matches the context the neighbouring runtime is configured for, so the two are
       #   measurable against each other.
-      # --max-num-seqs 4: the default is 1024 concurrent sequences. This is a HYBRID
+      # --max-num-seqs 4: the default here is 256 concurrent sequences. (Not 1024 - that
+      #   figure applies only to GPUs with 70 GiB or more; this card takes the smaller
+      #   branch, which also sets a batched-token default of 2048.) This is a HYBRID
       #   linear-attention model, and the runtime allocates per-sequence recurrent state for
       #   every slot up front, whether or not anything uses it -- unlike a KV cache, that cost
       #   does not scale down with short conversations. Measured: the process reached 22.87 GiB
       #   of a 23.52 GiB card before any cache was allocated, against 18.37 GiB of weights,
-      #   and it then died allocating 784 MiB for graph capture with 649 MiB free. The
+      #   and it then died allocating 784 MiB for graph capture with 649 MiB free. Dropping
+      #   to 4 slots recovered ~1.4 GiB, which is ~5.6 MiB of recurrent state per slot. The
       #   workload here is ONE interactive user, so 1024 slots buy nothing that could ever be
       #   used; the batching those slots exist to serve is exactly the feature that is inert
       #   at a concurrency of one.
