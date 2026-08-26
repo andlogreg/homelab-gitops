@@ -3,4 +3,4 @@ kind: Kustomization
 resources:
   - ollama
   - open-webui
-  # - vllm
+  - vllm
