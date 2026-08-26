@@ -18,26 +18,33 @@ configMapGenerator:
       # modern 4-bit pick. Apache-2.0 and ungated, unlike the licence-gated model this overlay
       # used to name, so a from-scratch bring-up cannot fail on a Hugging Face approval step.
       - MODEL_NAME=cyankiwi/Qwen3.8-27B-AWQ-INT4
-      # Forces the Hugging Face client onto its plain-HTTP download path instead of the
-      # chunk-deduplicating one it now prefers by default. This is not a preference; the
-      # default path hung this bring-up twice.
+      # Forces the Hugging Face client off its chunk-deduplicating download path.
       #
-      # What was observed, on a ~20 GiB checkpoint over a domestic link: the transfer stops
-      # dead at ~96% with its TLS connections still ESTABLISHED and idle, no error, no
-      # timeout, no retry - and it holds the per-blob lock in the cache while it hangs, so a
-      # second downloader cannot make progress either and simply waits behind it. Nothing
-      # ever fails, so nothing ever recovers; the pod sits there until the startup probe
-      # eventually kills it.
+      # HONEST STATUS: this is NOT a proven fix, and an earlier version of this comment
+      # claimed it was. What is established is only that the model download hangs near
+      # completion, and that it does so with the default path. The transfer stops dead with
+      # its TLS connections still ESTABLISHED and idle - no error, no timeout, no retry - and
+      # it holds the per-blob lock in the cache while hung, so a second downloader cannot get
+      # past it either and simply waits behind it. Nothing fails, so nothing recovers.
       #
-      # It also does not resume across a container restart: it mints fresh temporary files
-      # rather than reopening the previous attempt's, so every restart re-downloads
-      # everything and leaves the abandoned partial files behind as dead weight on the
-      # volume. The plain path does resume - a shard left partially transferred by the hung
-      # attempt was picked up and finished from where it stopped, in under a minute.
+      # What refutes the simple story: with this variable set, a fresh start ALSO sat at zero
+      # bytes on the remaining shard. So the hang is not attributable to the deduplicating
+      # path alone. It is also not the network: a plain ranged HTTP request for the very same
+      # shard, from inside the very same container, sustained ~50 MiB/s while the client was
+      # making no progress at all.
       #
-      # The faster downloader is a third option and is NOT available: it is not installed in
-      # this image, and enabling it by environment variable without the package raises
-      # instead of falling back.
+      # The variable is kept because it is harmless and the default path is the one observed
+      # hanging twice, not because it has been shown to help. Do not treat a successful
+      # bring-up as evidence that it works.
+      #
+      # If a bring-up hangs here: the recovery that DID work was fetching the missing shard
+      # with ranged HTTP requests, verifying it against the checksum that the blob filename
+      # already encodes, and placing it in the cache by hand. The checksum makes that
+      # verifiable rather than hopeful.
+      #
+      # The accelerated downloader is a third option and is NOT available: it is not
+      # installed in this image, and enabling it by environment variable without the package
+      # raises instead of falling back.
       - HF_HUB_DISABLE_XET=1
       # The whole argument string is ONE ConfigMap value, and the surrounding quotes here are
       # YAML's -- they are stripped by the parser and never reach the container. Do not quote
