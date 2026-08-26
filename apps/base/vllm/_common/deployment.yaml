@@ -13,7 +13,7 @@ spec:
   # model can legitimately outlast ten minutes; the point of the probe is to bound that wait,
   # not to have the rollout time out underneath it. Now sized to exceed the startup budget
   # below, which had to grow to cover a first-start model download.
-  progressDeadlineSeconds: 4200
+  progressDeadlineSeconds: 8400
   selector:
     matchLabels:
       app: vllm
@@ -52,20 +52,28 @@ spec:
         # that never finishes fails the rollout instead of hanging - see the raised
         # progressDeadlineSeconds above, which has to exceed this budget.
         #
-        # 10s x 360 = 60 minutes, raised from 90 (15 minutes). The first start of a model this
+        # 10s x 720 = 2 hours, raised from 90 (15 minutes). The first start of a model this
         # size is not a load, it is a DOWNLOAD: ~20 GiB of weights are fetched before the
         # server binds /health at all, which does not fit in fifteen minutes on a domestic
         # link. The old budget did not fail safely - the cache lives on a PVC, so each kill
         # resumed and made progress, and the symptom was a pod that looked like a crashloop
         # while actually working. That is the worst kind of wrong signal to have during a
         # bring-up, because it is indistinguishable from a real startup failure.
+        #
+        # Two hours rather than one because the measured rate is the thing that decides this,
+        # and it was measured rather than guessed: 5.7 MiB/s sustained, i.e. ~52 minutes for
+        # the weights ALONE, before loading them onto the card and capturing graphs. An hour
+        # would have left the outcome resting on the download not slowing down. The budget is
+        # a bound on a hang, not a schedule - setting it well above the expected time costs
+        # nothing when the start succeeds, and the only thing it delays is the report of a
+        # genuine hang.
         startupProbe:
           httpGet:
             path: /health
             port: 8000
           periodSeconds: 10
           timeoutSeconds: 5
-          failureThreshold: 360
+          failureThreshold: 720
         livenessProbe:
           httpGet:
             path: /health
