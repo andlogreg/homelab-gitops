@@ -68,7 +68,14 @@ configMapGenerator:
       #   workload here is ONE interactive user, so 1024 slots buy nothing that could ever be
       #   used; the batching those slots exist to serve is exactly the feature that is inert
       #   at a concurrency of one.
-      # --gpu-memory-utilization 0.95: raised from 0.90. This does not change the peak above,
+      # --enforce-eager: disables CUDA graph capture. Graphs are a decode-latency optimization
+      #   and they cost a reserved memory pool to hold the captured graphs -- on a card with
+      #   only a few hundred MiB of slack that pool competes directly with the token cache,
+      #   which is the thing that decides whether a usable context fits. Upstream's own
+      #   configuration for a 32 GB consumer card sets this, and that card has more headroom
+      #   than this one. It is a REAL cost to decode throughput and must be reported as such
+      #   rather than quietly enjoyed as if the comparison were like-for-like.
+      # --gpu-memory-utilization 0.97: raised from 0.90. This does not change the peak above,
       #   which is why it is not a fix on its own -- it is the budget the cache is sized
       #   against afterwards, and at 0.90 the budget (21.2 GiB) sits BELOW what start-up
       #   already uses, which leaves nothing for a cache at all. Note the card presents
@@ -76,7 +83,7 @@ configMapGenerator:
       # Deliberately NOT set: --trust-remote-code (this is a third-party quantization, and the
       #   flag executes code from the checkpoint), and --max-num-batched-tokens (the old value
       #   of 1024 throttles prefill hard, which is one of the things being measured).
-      - 'VLLM_ARGS=--language-model-only --kv-cache-dtype fp8 --enable-prefix-caching --reasoning-parser qwen3 --enable-auto-tool-choice --tool-call-parser qwen3_coder --max-model-len 65536 --max-num-seqs 4 --gpu-memory-utilization 0.95 --port 8000'
+      - 'VLLM_ARGS=--language-model-only --kv-cache-dtype fp8 --enable-prefix-caching --reasoning-parser qwen3 --enable-auto-tool-choice --tool-call-parser qwen3_coder --max-model-len 65536 --max-num-seqs 4 --enforce-eager --gpu-memory-utilization 0.97 --port 8000'
 
 patches:
   - target:
