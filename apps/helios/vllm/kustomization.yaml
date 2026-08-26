@@ -18,6 +18,27 @@ configMapGenerator:
       # modern 4-bit pick. Apache-2.0 and ungated, unlike the licence-gated model this overlay
       # used to name, so a from-scratch bring-up cannot fail on a Hugging Face approval step.
       - MODEL_NAME=cyankiwi/Qwen3.8-27B-AWQ-INT4
+      # Forces the Hugging Face client onto its plain-HTTP download path instead of the
+      # chunk-deduplicating one it now prefers by default. This is not a preference; the
+      # default path hung this bring-up twice.
+      #
+      # What was observed, on a ~20 GiB checkpoint over a domestic link: the transfer stops
+      # dead at ~96% with its TLS connections still ESTABLISHED and idle, no error, no
+      # timeout, no retry - and it holds the per-blob lock in the cache while it hangs, so a
+      # second downloader cannot make progress either and simply waits behind it. Nothing
+      # ever fails, so nothing ever recovers; the pod sits there until the startup probe
+      # eventually kills it.
+      #
+      # It also does not resume across a container restart: it mints fresh temporary files
+      # rather than reopening the previous attempt's, so every restart re-downloads
+      # everything and leaves the abandoned partial files behind as dead weight on the
+      # volume. The plain path does resume - a shard left partially transferred by the hung
+      # attempt was picked up and finished from where it stopped, in under a minute.
+      #
+      # The faster downloader is a third option and is NOT available: it is not installed in
+      # this image, and enabling it by environment variable without the package raises
+      # instead of falling back.
+      - HF_HUB_DISABLE_XET=1
       # The whole argument string is ONE ConfigMap value, and the surrounding quotes here are
       # YAML's -- they are stripped by the parser and never reach the container. Do not quote
       # the value itself: kustomize splits a literal on its first "=" and keeps the rest
