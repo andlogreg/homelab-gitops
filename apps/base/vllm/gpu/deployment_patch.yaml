@@ -11,7 +11,12 @@ spec:
           limits:
             nvidia.com/gpu: "1"
             cpu: "10"
-            memory: 20G
+            # Raised from 20G. This is host RAM, not VRAM, and it bounds the load path rather
+            # than the serving one: a 4-bit 27B checkpoint is ~21 GB of safetensors shards that
+            # are read and staged on the CPU side before they reach the card, so a 20G ceiling
+            # risks an OOMKill during startup that looks like a model problem. The node has
+            # 32 GiB and the request below is unchanged, so this only widens the ceiling.
+            memory: 26G
           requests:
             nvidia.com/gpu: "1"
             cpu: "2"

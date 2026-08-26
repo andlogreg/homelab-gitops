@@ -4,16 +4,44 @@ namespace: vllm
 resources:
   - ../../base/vllm/gpu
   - ingress.yaml
+  # Kept even though the checkpoint below is ungated: the container's reference to it is
+  # optional, so this never blocks a start, and anonymous Hugging Face pulls are rate-limited
+  # at the ~21 GB this model weighs.
   - external-secret.yaml
 
 configMapGenerator:
   - name: vllm-config
     literals:
-      - IGNORE_ME2=meta-llama/Meta-Llama-3-8B-Instruct
-      - IGNORE_ME=Mistral-7B-Instruct-v0.3
-      - MODEL_NAME=meta-llama/Llama-3.1-8B-Instruct
-      - VLLM_ARGS="--gpu-memory-utilization 0.90 --port 8000 --trust-remote-code --enable-chunked-prefill --max_num_batched_tokens 1024 --max-model-len 32768  --api-key Gjui9F5S2H"
-      - VLLM_LOGGING_LEVEL=DEBUG
+      # A 4-bit AWQ quantization of a dense 27B, chosen because it is the only format that fits
+      # a single 24 GB Ada card: BF16 wants an H200 or two H100s, FP8 wants a 40 GB card, and
+      # NVFP4 is Blackwell-only and cannot run here at all despite looking like the obvious
+      # modern 4-bit pick. Apache-2.0 and ungated, unlike the licence-gated model this overlay
+      # used to name, so a from-scratch bring-up cannot fail on a Hugging Face approval step.
+      - MODEL_NAME=cyankiwi/Qwen3.8-27B-AWQ-INT4
+      # The whole argument string is ONE ConfigMap value, and the surrounding quotes here are
+      # YAML's -- they are stripped by the parser and never reach the container. Do not quote
+      # the value itself: kustomize splits a literal on its first "=" and keeps the rest
+      # verbatim, so an inner pair of quotes becomes part of the value, and the entrypoint's
+      # `vllm serve $(MODEL_NAME) $(VLLM_ARGS)` then word-splits `"--gpu-memory-utilization`
+      # into a single argument with a leading quote. That fails argparse on the first start,
+      # after the multi-gigabyte model download has already been paid for.
+      #
+      # --language-model-only: this is a vision-language checkpoint and the vision tower is
+      #   dead weight for coding -- it is roughly 2B of the parameters, and on a card this
+      #   close to full that is the difference between fitting a useful context and not.
+      # --kv-cache-dtype fp8: halves the KV cache, which is what actually binds here. Weights
+      #   leave only a few GB and the cache is the only elastic consumer left.
+      # --enable-prefix-caching: an agent resends the whole conversation with one turn
+      #   appended, so nearly every prefill is a repeat of the last one. Without this the
+      #   per-turn cost is dominated by re-reading context the server just read.
+      # --max-model-len 65536: agentic clients need >=64k and degrade *silently* below it --
+      #   the symptom is an agent that loops or forgets its own tool output, not an error.
+      #   Matches the context the neighbouring runtime is configured for, so the two are
+      #   measurable against each other.
+      # Deliberately NOT set: --trust-remote-code (this is a third-party quantization, and the
+      #   flag executes code from the checkpoint), and --max-num-batched-tokens (the old value
+      #   of 1024 throttles prefill hard, which is one of the things being measured).
+      - 'VLLM_ARGS=--language-model-only --kv-cache-dtype fp8 --enable-prefix-caching --reasoning-parser qwen3 --enable-auto-tool-choice --tool-call-parser qwen3_coder --max-model-len 65536 --gpu-memory-utilization 0.90 --port 8000'
 
 patches:
   - target:
@@ -25,3 +53,20 @@ patches:
         value:
           - configMapRef:
               name: vllm-config
+  # Raised from the shared base's 30Gi, which fits exactly one of these checkpoints and nothing
+  # else. The StorageClass here has ALLOWVOLUMEEXPANSION=false, so growing this later means
+  # deleting the volume and re-downloading everything on it -- the number has to be roomy the
+  # first time, and it is free to pick now because the volume does not exist yet. 60Gi holds
+  # two ~21 GB checkpoints side by side, which is what comparing them requires.
+  - target:
+      kind: PersistentVolumeClaim
+      name: vllm-data
+    patch: |-
+      apiVersion: v1
+      kind: PersistentVolumeClaim
+      metadata:
+        name: vllm-data
+      spec:
+        resources:
+          requests:
+            storage: 60Gi

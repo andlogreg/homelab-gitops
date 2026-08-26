@@ -29,11 +29,17 @@ spec:
           "vllm serve $(MODEL_NAME) $(VLLM_ARGS)"
         ]
         env:
+        # optional, and deliberately so. The checkpoint served on the GPU host is Apache-2.0 and
+        # ungated, so a missing token must not stop the pod starting -- without this the container
+        # sits in CreateContainerConfigError whenever the secret is absent, which is the state the
+        # CPU overlay is permanently in. The token is still worth having when present: anonymous
+        # Hugging Face downloads are rate-limited, and these checkpoints are ~21 GB.
         - name: HF_TOKEN
           valueFrom:
             secretKeyRef:
               name: hf-token
               key: token
+              optional: true
         ports:
         - containerPort: 8000
         volumeMounts:
