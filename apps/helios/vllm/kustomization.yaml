@@ -108,7 +108,7 @@ configMapGenerator:
       # Deliberately NOT set: --trust-remote-code (this is a third-party quantization, and the
       #   flag executes code from the checkpoint), and --max-num-batched-tokens (the old value
       #   of 1024 throttles prefill hard, which is one of the things being measured).
-      - 'VLLM_ARGS=--language-model-only --kv-cache-dtype fp8 --enable-prefix-caching --reasoning-parser qwen3 --enable-auto-tool-choice --tool-call-parser qwen3_coder --max-model-len 65536 --max-num-seqs 4 --enforce-eager --gpu-memory-utilization 0.92 --port 8000'
+      - 'VLLM_ARGS=--language-model-only --kv-cache-dtype fp8 --enable-prefix-caching --reasoning-parser qwen3 --enable-auto-tool-choice --tool-call-parser qwen3_coder --max-model-len 32768 --max-num-seqs 4 --gpu-memory-utilization 0.92 --port 8000'
 
 patches:
   - target:
