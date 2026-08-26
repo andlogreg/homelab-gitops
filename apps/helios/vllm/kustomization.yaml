@@ -128,6 +128,28 @@ patches:
         value:
           - configMapRef:
               name: vllm-config
+  # STOPPED, deliberately, and this is the resting state rather than a fault. This host has
+  # ONE GPU and two inference runtimes that each size themselves to take almost all of it, so
+  # only one can be resident. The comparison they existed to settle has been made; the other
+  # runtime is the one that serves day to day, so this one yields the card.
+  #
+  # It is stopped by replica count and NOT by removing it from the parent kustomization. That
+  # path is reconciled with pruning on, so dropping the resource would garbage-collect this
+  # namespace along with the volume below -- and that volume holds a ~21 GB checkpoint whose
+  # download is the single most expensive and least reliable step in bringing this up. Getting
+  # it there once required fetching a shard by hand after the client hung near completion.
+  # Keeping the volume makes a future revisit a two-minute replica change instead of a
+  # multi-hour re-download. Patch the replica count; never delete the resource.
+  - target:
+      kind: Deployment
+      name: vllm
+    patch: |-
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: vllm
+      spec:
+        replicas: 0
   # Raised from the shared base's 30Gi, which fits exactly one of these checkpoints and nothing
   # else. The StorageClass here has ALLOWVOLUMEEXPANSION=false, so growing this later means
   # deleting the volume and re-downloading everything on it -- the number has to be roomy the
