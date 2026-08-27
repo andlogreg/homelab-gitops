@@ -3,15 +3,18 @@ kind: Kustomization
 resources:
   - ollama
   - open-webui
-  # TEMPORARY, and it must be reverted -- the sibling comment on the replica patch in
-  # ollama/kustomization.yaml is the other half of this manoeuvre. Deployed only for a
-  # like-for-like comparison against the runtime above, on the one GPU this host has. When the
-  # comparison is finished this line is commented out again rather than left running: with
-  # pruning on, removing it from this list garbage-collects the namespace, the deployment and
-  # the volume together, which is the intended clean-up.
+  # Deployed only for a like-for-like comparison against the runtime above, on the one GPU this
+  # host has. The comparison is finished and the everyday runtime won it, so this is commented
+  # out rather than left running: with pruning on, removing it from this list garbage-collects
+  # the namespace, the deployment and the volume together, which is the intended clean-up.
   #
-  # The overlay it points at is worth reading before touching: every flag in it is annotated
-  # with what that flag actually cost or bought when measured on this card, including the two
-  # settings whose defaults do not work here. Enabling it means paying the ~21 GB model
-  # download again, which is the least reliable step in the whole bring-up.
-  - vllm
+  # The overlay it points at is kept, and it is worth reading before re-enabling: every flag in
+  # it is annotated with what that flag actually cost or bought when measured on this card,
+  # including the two settings whose defaults do not work here, and now also the one feature
+  # that cannot be had on this card at any setting.
+  #
+  # Re-enabling means paying the ~21 GB model download again. That was previously described as
+  # the least reliable step in the whole bring-up, on the strength of one attempt that hung near
+  # completion; a second attempt ran clean at roughly a hundred megabytes a second and was done
+  # in under four minutes. Treat the hang as intermittent rather than expected.
+  # - vllm
