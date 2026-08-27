@@ -116,7 +116,21 @@ configMapGenerator:
       # Deliberately NOT set: --trust-remote-code (this is a third-party quantization, and the
       #   flag executes code from the checkpoint), and --max-num-batched-tokens (the old value
       #   of 1024 throttles prefill hard, which is one of the things being measured).
-      - 'VLLM_ARGS=--language-model-only --kv-cache-dtype fp8 --enable-prefix-caching --reasoning-parser qwen3 --enable-auto-tool-choice --tool-call-parser qwen3_coder --max-model-len 65536 --max-num-seqs 4 --enforce-eager --gpu-memory-utilization 0.92 --port 8000'
+      # --speculative-config: drives the model's own multi-token-prediction head as a draft,
+      #   which is the same mechanism the neighbouring runtime has had on by default all along.
+      #   The checkpoint carries it: config.json declares mtp_num_hidden_layers 1 and the last
+      #   shard holds 15 mtp.* tensors, left UNQUANTIZED (they are in quantization_config.ignore),
+      #   so the head is roughly 0.73 GiB of bf16 on top of the weights already loaded.
+      #
+      #   MIND THE TWO LAYERS OF QUOTING, because getting it wrong fails argparse only after the
+      #   model has loaded. The whole argument string is one ConfigMap value that is substituted
+      #   into `sh -c "vllm serve $(MODEL_NAME) $(VLLM_ARGS)"`, so the SHELL parses this text: bare
+      #   double quotes around the JSON keys would be stripped as shell quoting and argparse would
+      #   receive {method:mtp,...}, which is not JSON. The single quotes below survive into the
+      #   shell and protect the double quotes; they are doubled here only because YAML is itself
+      #   inside a single-quoted scalar. Verify by rendering the overlay and parsing the value the
+      #   same way the shell will, not by reading it.
+      - 'VLLM_ARGS=--language-model-only --kv-cache-dtype fp8 --enable-prefix-caching --reasoning-parser qwen3 --enable-auto-tool-choice --tool-call-parser qwen3_coder --max-model-len 65536 --max-num-seqs 4 --enforce-eager --gpu-memory-utilization 0.92 --speculative-config ''{"method":"mtp","num_speculative_tokens":1}'' --port 8000'
 
 patches:
   - target:
