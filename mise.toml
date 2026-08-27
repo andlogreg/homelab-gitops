@@ -9,7 +9,7 @@ k9s = "latest"
 # writes, and an older binary refuses to read state written by a newer one. An
 # unpinned version let two machines drift apart until one could no longer read the
 # state the other had written. Bump deliberately, on all machines.
-terraform = "1.14"
+terraform = "1.16.0"
 velero = "latest"      # CLI for operating/verifying Velero backups on the phoenix clusters
 azure-cli = { version = "latest", uvx_args = "--prerelease=allow" }
 
