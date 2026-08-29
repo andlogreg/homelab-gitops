@@ -1,6 +1,6 @@
 [tools]
 cloudflared = "latest"
-python = "3.14.6"        # pre-commit is a Python app; make the hook toolchain self-contained
+python = "3.14.7"        # pre-commit is a Python app; make the hook toolchain self-contained
 pre-commit = "latest"
 flux2 = "latest"
 k3d = "latest"
