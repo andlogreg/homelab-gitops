@@ -15,6 +15,15 @@ azure-cli = { version = "latest", uvx_args = "--prerelease=allow" }
 
 [settings]
 experimental = true
+# Never build CPython from source here; always take the prebuilt standalone release.
+# A source build silently DROPS optional stdlib modules whose headers are missing
+# rather than failing: bumping python 3.14.6 -> 3.14.7 compiled locally (no
+# libsqlite3-dev in the devcontainer) and produced a Python with no `_sqlite3`,
+# which broke `pre-commit` - the one thing this python pin exists to run - while
+# reporting a clean install. The prebuilt releases bundle sqlite, so the same
+# version installs complete. This is why 3.14.6 worked and 3.14.7 did not: 3.14.6
+# had been fetched prebuilt, 3.14.7 was compiled.
+python.compile = false
 
 [hooks]
 enter = "bash ./scripts/setup_project"
