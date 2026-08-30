@@ -12,5 +12,5 @@ spec:
         kind: HelmRepository
         name: longhorn-repo
       interval: 12h
-      version: 1.12.0
+      version: 1.12.1
   interval: 12h
