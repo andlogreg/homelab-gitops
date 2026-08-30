@@ -113,6 +113,27 @@ configMapGenerator:
       #   ~1.2 GiB unclaimed for that transient. Do NOT raise it back to squeeze out more
       #   cache: the headroom IS the feature, and the failure it prevents is a hard crash of
       #   the whole server -- every in-flight request included -- not a slow response.
+      # UNVERIFIED AGAINST v0.28.0 - read before the next bring-up. The image tag was taken
+      #   from v0.27.1 to v0.28.0 on 2026-08-30 while this overlay was commented out of
+      #   ../kustomization.yaml, so NOTHING below has been re-measured on v0.28.0. Every number
+      #   in this file was measured on v0.27.1. Three things in that release touch this config:
+      #
+      #   1. --max-num-batched-tokens: the DEFAULT moved 8192 -> 16384. This overlay deliberately
+      #      does not set it (see below), so it silently inherits the doubling. That matters here
+      #      specifically: the note on --gpu-memory-utilization records a server that died OOM
+      #      inside the linear-attention prefill kernel because a real long prefill took ~1.08 GiB
+      #      against a PROFILED peak of 0.39 GiB, and 0.92 leaves only ~1.2 GiB for that
+      #      transient. A doubled batched-token budget pushes on exactly that margin. If the
+      #      server starts and then dies on the first long prompt, set --max-num-batched-tokens
+      #      8192 to restore the old behaviour BEFORE touching --gpu-memory-utilization.
+      #   2. reasoning_content output removal is called a breaking CLIENT change. This overlay
+      #      runs --reasoning-parser qwen3 and Open WebUI is the client, so that lands on the
+      #      contract between them. Test a reasoning request end to end, not just pod readiness.
+      #   3. Transformers was bumped to 5.15.0, and bitsandbytes moved out-of-tree. Neither is
+      #      referenced here (this is an AWQ-INT4 checkpoint), so both should be inert.
+      #
+      #   Checked and NOT a problem: the two removed flags, calculate_kv_scales and
+      #   override_attention_dtype, appear nowhere in this repo.
       # Deliberately NOT set: --trust-remote-code (this is a third-party quantization, and the
       #   flag executes code from the checkpoint), and --max-num-batched-tokens (the old value
       #   of 1024 throttles prefill hard, which is one of the things being measured).

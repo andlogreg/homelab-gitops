@@ -36,9 +36,34 @@ spec:
       # pin. It is COUPLED to the chart major above: re-check it by hand whenever
       # gpu-operator is bumped (see the dependency-sweep runbook).
       #
-      # Why pinned at all: 580.173.02 is NVIDIA's recommended driver for v26.3.3 and
-      # keeps the operator on a K8s-1.36-supported release. It is NOT pinned to dodge
-      # a firmware bug - that earlier theory was wrong, see below.
+      # Why pinned at all, RE-CHECKED BY HAND 2026-08-30 for the v26.7.0 bump above.
+      # The answer CHANGED, so read this rather than assuming it still says what it
+      # used to. Against NVIDIA's component matrix for v26.7.0:
+      #
+      #   595.91.07  recommended AND default for this chart release
+      #   610.57.04  supported
+      #   580.173.02 supported   <- what is pinned here
+      #   535.309.01 supported
+      #
+      # So 580.173.02 is still a SUPPORTED driver for v26.7.0, but it is no longer the
+      # RECOMMENDED one. The old justification for this line - "it is NVIDIA's
+      # recommended driver for this chart release" - is therefore now false, and has
+      # been replaced by the one below. (K8s support was re-checked too: v26.7.0
+      # covers 1.33-1.36 and helios-00 runs 1.36.2+k3s1, so the chart bump is fine.)
+      #
+      # Held at 580.173.02 anyway, deliberately, for a reason that outranks "newer":
+      # the ~14 W idle result recorded below depends on the PROPRIETARY kernel module
+      # being available for Ada. From the 560 series onward NVIDIA makes the OPEN
+      # module the default and recommends it for Turing/Ampere/Ada/Hopper, and whether
+      # 595.91.07 still ships a proprietary module for this card was NOT confirmed. If
+      # it does not, moving the pin would silently drop the card from ~12.5 W to
+      # ~26.5 W - the exact regression the measurement below exists to prevent, and one
+      # that shows up as a power bill rather than as an error. Do not move this pin on
+      # the strength of "595 is recommended" alone; confirm the proprietary module
+      # first, then move it as its own change so a reload can be attributed to it.
+      #
+      # It is NOT pinned to dodge a firmware bug - that earlier theory was wrong, see
+      # below.
       version: "580.173.02"
       # DELIBERATE AND MEASURED, not a workaround. Read this before "fixing" it.
       #
