@@ -9,10 +9,13 @@
 # TWO IDENTITIES, NOT ONE, deliberately. Each holds Storage Blob Data Contributor on exactly ONE
 # container, so a compromise of the Velero path cannot reach the CNPG backups and vice versa.
 #
-# NO ARM ROLE AT ALL, also deliberately. Without one, these principals cannot call listKeys, edit
-# the lifecycle policy, or change blob service properties. It also closes a trap in Velero: with
+# ALMOST NO ARM ROLE, and the exception is named. These principals cannot call listKeys, edit the
+# lifecycle policy, or change blob service properties. That also closes a trap in Velero: with
 # neither `storageAccountKeyEnvVar` nor `useAAD` set it falls back to exchanging the Entra
 # credential for the account key via listKeys. That fallback cannot succeed here.
+#
+# The one exception is Storage Blob Delegator on the Velero identity, added because the original
+# "no ARM role at all" broke Velero's own inspection path -- see the block above that resource.
 #
 # CLIENT SECRETS, NOT WORKLOAD IDENTITY. Federated identity needs a projected ServiceAccount token
 # volume, and neither consumer can mount one: the Velero BSL takes a credentials file, and the
@@ -78,6 +81,43 @@ resource "azurerm_role_assignment" "backup_container" {
   scope                = module.storage.container_ids[each.value.container]
   role_definition_name = "Storage Blob Data Contributor"
   principal_id         = azuread_service_principal.backup[each.key].object_id
+}
+
+# THE ONE ARM ROLE, and why it does not undo the paragraph above.
+#
+# WHAT BROKE. With only the container-scoped assignment, every Velero DownloadRequest failed
+# `403 AuthorizationPermissionMismatch`, so `velero backup describe --details`, `velero backup
+# logs`, `velero restore logs` and `velero backup download` all returned errors instead of data.
+# Restores were never affected -- the plugin reads blobs directly and does not sign a URL -- which
+# is exactly why this went unnoticed from the identity migration until TASK-120. The cost is paid
+# at the worst possible moment: during a real recovery you cannot read the restore's own log.
+#
+# WHY. Signing a download URL under Entra auth means a user delegation SAS, which needs
+# `Microsoft.Storage/storageAccounts/blobServices/generateUserDelegationKey/action`. Storage Blob
+# Data Contributor DOES include that action -- the role was never the problem, the SCOPE was.
+# Get User Delegation Key acts at the level of the storage account, so Microsoft requires the
+# action to be assigned at account, resource group or subscription scope; a container-scoped
+# assignment can never satisfy it. Microsoft documents this exact remedy for this exact shape:
+# a principal holding container-scoped data access is additionally granted Storage Blob Delegator
+# at account scope.
+#
+# WHY IT DOES NOT WIDEN THE BLAST RADIUS, which is the only question that matters here.
+#   1. Storage Blob Delegator grants exactly ONE action and no dataActions
+#      (`az role definition list --name "Storage Blob Delegator" --query "[0].permissions"`).
+#      No listKeys, no lifecycle policy, no blob service properties. The Velero account-key
+#      fallback trap described above stays shut.
+#   2. A user delegation SAS is bounded by the INTERSECTION of the requesting principal's RBAC and
+#      the permissions written into the token. Delegation cannot mint authority the principal does
+#      not already hold, so this identity can still only sign URLs over its own container. Account
+#      SCOPE on the delegation action is not account ACCESS.
+#
+# VELERO ONLY. The barman path never issues a SAS -- CNPG reads and writes blobs directly -- so the
+# CNPG identity is deliberately left without this role. Grant it only if something there starts
+# needing signed URLs, and record why.
+resource "azurerm_role_assignment" "velero_blob_delegator" {
+  scope                = module.storage.id
+  role_definition_name = "Storage Blob Delegator"
+  principal_id         = azuread_service_principal.backup["velero"].object_id
 }
 
 # The operator's own identity needs a data-plane role too, and did NOT have one: subscription
