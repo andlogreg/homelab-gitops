@@ -89,8 +89,9 @@ resource "azurerm_role_assignment" "backup_container" {
 # `403 AuthorizationPermissionMismatch`, so `velero backup describe --details`, `velero backup
 # logs`, `velero restore logs` and `velero backup download` all returned errors instead of data.
 # Restores were never affected -- the plugin reads blobs directly and does not sign a URL -- which
-# is exactly why this went unnoticed from the identity migration until TASK-120. The cost is paid
-# at the worst possible moment: during a real recovery you cannot read the restore's own log.
+# is exactly why this went unnoticed for five weeks after the identities moved to Entra auth. The
+# cost is paid at the worst possible moment: during a real recovery you cannot read the restore's
+# own log.
 #
 # WHY. Signing a download URL under Entra auth means a user delegation SAS, which needs
 # `Microsoft.Storage/storageAccounts/blobServices/generateUserDelegationKey/action`. Storage Blob
