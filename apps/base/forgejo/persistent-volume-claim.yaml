@@ -7,4 +7,15 @@ spec:
     - ReadWriteOnce
   resources:
     requests:
+      # NOTE: this number is nominal. The local-path provisioner is hostPath-backed
+      # and enforces no quota, so a volume can and will grow past it; the kubelet
+      # reports the node's filesystem capacity for every local-path PVC rather than
+      # a per-volume figure. The real limit is the node's root filesystem, and
+      # because this is a single-node cluster, filling it takes down every workload
+      # on the node -- not just this one. The guard is NodeFilesystemAlmostOutOfSpace,
+      # not this field.
+      #
+      # Raising it is not a one-line change: the StorageClass is the k3s-managed
+      # local-storage addon and does not set allowVolumeExpansion, so a resize is
+      # rejected, and the PVC status would keep reporting the old value regardless.
       storage: 1Gi
