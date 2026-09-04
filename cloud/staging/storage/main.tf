@@ -51,13 +51,21 @@ module "storage" {
     container_delete_retention_policy_days = 30
   }
 
-  # Backup cleanup: delete the frozen archives after 30d, and sweep the live backup containers
-  # 30d after last write (> the in-cluster Velero 20d TTL + CNPG 14d retention).
+  # Backup cleanup: delete the frozen archives after 30d. Nothing sweeps the live backup
+  # containers -- see the Rule B comment in the module. The old rule swept them 30d after last
+  # write, on the premise that this was safely above the in-cluster Velero 20d TTL and CNPG 14d
+  # retention; the premise was false, because backup blobs are never rewritten, and it destroyed
+  # this environment's kopia repository on 2026-08-13.
+  #
+  # The list is empty because staging genuinely has no retired generation: only
+  # phoenix-staging-g1 under velero-backups/, only *-db-01 under cnpg-backups/. Populate it at the
+  # next rebuild, when one is actually retired.
   lifecycle_management = {
     enabled                        = true
     archive_retention_days         = 30
     cold_generation_retention_days = 30
     version_retention_days         = 30
+    retired_generation_prefixes    = []
   }
 
   tags = {

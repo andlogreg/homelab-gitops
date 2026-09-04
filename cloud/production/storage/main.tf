@@ -51,16 +51,33 @@ module "storage" {
     container_delete_retention_policy_days = 30
   }
 
-  # Backup cleanup: delete the frozen pre-rebuild archives after 30d. Sweep the live backup
-  # containers 180d after last write — this is the total-loss recovery window. The in-cluster
-  # Velero TTL (20d) and CNPG retention (14d) keep the active generation small while a cluster is
-  # alive, so this rule only bites a generation that has gone cold: a retired one, or all of them
-  # after a disaster (giving ~6 months to rebuild and restore before the latest backups are removed).
+  # Backup cleanup: delete the frozen pre-rebuild archives after 30d, and the NAMED retired
+  # generations below 180d after last write.
+  #
+  # The previous version of this comment claimed the 180d window was the total-loss recovery
+  # window -- "~6 months to rebuild and restore before the latest backups are removed" -- and that
+  # the rule "only bites a generation that has gone cold". Both were wrong, and the second one had
+  # already fired here: it deleted the kopia format blobs of the retired g0 repos for homarr,
+  # linkding and mealie, which are now unopenable. See the Rule B comment in the module.
+  #
+  # Nothing sweeps the live generation any more, so the total-loss window is now indefinite --
+  # strictly better for the purpose the 180d figure was chosen to serve.
+  #
+  # The prefixes below are the generations the 2026-07-12/13 rebuild retired, verified against blob
+  # storage on 2026-09-04 (1751 blobs, ~670 MB, nothing written since 2026-07-13). The live
+  # generation -- velero-backups/phoenix-production-g1/, and cnpg-backups/{litellm,mealie}/*-db-01
+  # and health/health-db-00 -- must never appear here.
   lifecycle_management = {
     enabled                        = true
     archive_retention_days         = 30
     cold_generation_retention_days = 180
     version_retention_days         = 30
+    retired_generation_prefixes = [
+      "velero-backups/backups/",
+      "velero-backups/kopia/",
+      "cnpg-backups/litellm/litellm-db-00/",
+      "cnpg-backups/mealie/mealie-db-00/",
+    ]
   }
 
   tags = {

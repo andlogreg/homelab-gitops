@@ -97,27 +97,41 @@ variable "lifecycle_management" {
   description = <<-EOT
     Azure Blob lifecycle management for backup cleanup.
     Rule A flat-deletes the frozen *-archive-pre-t12 containers after archive_retention_days.
-    Rule B deletes blobs in the live backup containers (velero-backups/, cnpg-backups/) after
-    cold_generation_retention_days since last modification. This sweeps retired generations
-    (a rebuilt cluster writes under a fresh prefix/serverName, so the old one goes cold) and
-    also bounds how long backups survive after a total cluster loss, so set it above the
-    in-cluster Velero TTL (20d) and CNPG retention (14d). enabled = false disables the policy.
+    Rule B deletes blobs under retired_generation_prefixes after cold_generation_retention_days
+    since last modification, and is not emitted at all when that list is empty.
+
+    retired_generation_prefixes is an EXPLICIT list of "<container>/<path>/" prefixes belonging to
+    generations a rebuild has retired. It defaults to empty, and the live generation must never
+    appear in it. Retiring a generation is a deliberate act performed by a human during a rebuild,
+    not something a lifecycle rule can infer -- see the comment on Rule B in main.tf for the
+    incident that established this.
+
+    cold_generation_retention_days is the window applied to those named prefixes. It no longer
+    bounds how long backups survive a total cluster loss: with no rule on the live prefix that
+    window is now indefinite, which serves the disaster-recovery purpose strictly better than
+    deleting on a timer. Storage stays bounded because Velero TTL GC, kopia repository maintenance
+    and barman retention all prune the live generation from inside the cluster. enabled = false
+    disables the policy entirely.
 
     version_retention_days prunes non-current blob versions in both rules. It only does anything
     when blob_properties.versioning_enabled is true, and it is the reason versioning must not be
-    enabled without this policy: nothing else deletes a version.
+    enabled without this policy: nothing else deletes a version. Note it is NOT a safety net for a
+    base blob the policy deletes: a version's age counts from version CREATION, so a write-once
+    blob's version is already older than this window the moment it becomes non-current.
   EOT
   type = object({
     enabled                        = bool
     archive_retention_days         = number
     cold_generation_retention_days = number
     version_retention_days         = number
+    retired_generation_prefixes    = list(string)
   })
   default = {
     enabled                        = false
     archive_retention_days         = 30
     cold_generation_retention_days = 30
     version_retention_days         = 30
+    retired_generation_prefixes    = []
   }
 }
 

@@ -48,9 +48,8 @@ resource "azurerm_storage_container" "containers" {
   container_access_type = "private"
 }
 
-# Backup cleanup. Rule A flat-deletes the frozen pre-rebuild archives; Rule B deletes blobs in
-# the live backup containers after N days since last modification, which sweeps cold/retired
-# generations (a rebuilt cluster writes under a fresh prefix/serverName, so the old one goes cold).
+# Backup cleanup. Rule A flat-deletes the frozen pre-rebuild archives; Rule B deletes blobs under
+# the EXPLICITLY NAMED retired generation prefixes. Neither rule may ever match a live one.
 resource "azurerm_storage_management_policy" "backup_lifecycle" {
   count              = var.lifecycle_management.enabled ? 1 : 0
   storage_account_id = azurerm_storage_account.storage.id
@@ -74,23 +73,56 @@ resource "azurerm_storage_management_policy" "backup_lifecycle" {
     }
   }
 
-  # Rule B — cold/retired generations in the live backup containers. The trailing slash keeps
-  # this OFF the *-archive-pre-t12 containers (Rule A owns those) since their path is
-  # "velero-backups-archive-…", not "velero-backups/…".
-  rule {
-    name    = "sweep-cold-generations"
-    enabled = true
-    filters {
-      prefix_match = ["velero-backups/", "cnpg-backups/"]
-      blob_types   = ["blockBlob"]
-    }
-    actions {
-      base_blob {
-        delete_after_days_since_modification_greater_than = var.lifecycle_management.cold_generation_retention_days
+  # Rule B — retired generations, NAMED EXPLICITLY.
+  #
+  # This rule used to carry the bare prefixes "velero-backups/" and "cnpg-backups/" and infer
+  # "retired" from days-since-last-modification, on the assumption that a live generation is
+  # rewritten often enough to stay fresh. That assumption is false, and it destroyed real backups.
+  #
+  # Backup formats are deliberately WRITE-ONCE. None of these is ever rewritten after creation:
+  #   - kopia's format blob (kopia.repository, kopia.blobcfg), written at repository init. It
+  #     carries the encryption parameters and key-derivation salt, so losing it does not merely
+  #     unindex the repository, it makes every remaining blob undecryptable.
+  #   - kopia's content-addressed data blobs (p*), which today's snapshot still references
+  #     precisely BECAUSE deduplication declined to write them again.
+  #   - barman's WAL segments and base-backup tarballs.
+  #   - PostgreSQL timeline history files (NNNNNNNN.history.gz), written once at promotion and
+  #     never pruned by barman's own retention.
+  # Azure can only see when a blob was last WRITTEN, never whether it is still NEEDED, so on this
+  # kind of data the two diverge completely and the rule deletes live backups on a timer.
+  #
+  # What it cost: staging's kopia repository was initialised ~2026-07-14 and its format
+  # blob aged out at exactly 30 days on 2026-08-13, taking every staging snapshot with it while
+  # BackupRepository still reported Ready and 21 consecutive dailies reported PartiallyFailed. The
+  # same thing had already happened to production's retired g0 repos at 180 days. Blob versioning
+  # is no protection: a version's age counts from version creation, so a write-once blob's version
+  # is born older than version_retention_days.
+  #
+  # The live generation is therefore left to the mechanisms that actually know what is still
+  # referenced -- Velero TTL GC plus kopia repository maintenance, and barman retention -- and this
+  # rule only ever touches prefixes a human named when a rebuild retired them. Adding that prefix
+  # is a step in the rebuild runbook. Forgetting it wastes storage; the old behaviour destroyed
+  # backups, so this fails in the cheaper direction.
+  #
+  # The for_each is load-bearing: an Azure lifecycle rule with an empty prefix_match filter matches
+  # the ENTIRE account, so an empty list must emit no rule rather than an unfiltered one.
+  dynamic "rule" {
+    for_each = length(var.lifecycle_management.retired_generation_prefixes) > 0 ? [1] : []
+    content {
+      name    = "sweep-retired-generations"
+      enabled = true
+      filters {
+        prefix_match = var.lifecycle_management.retired_generation_prefixes
+        blob_types   = ["blockBlob"]
       }
-      # No-op unless versioning is enabled. Nothing else ever deletes a non-current version.
-      version {
-        delete_after_days_since_creation = var.lifecycle_management.version_retention_days
+      actions {
+        base_blob {
+          delete_after_days_since_modification_greater_than = var.lifecycle_management.cold_generation_retention_days
+        }
+        # No-op unless versioning is enabled. Nothing else ever deletes a non-current version.
+        version {
+          delete_after_days_since_creation = var.lifecycle_management.version_retention_days
+        }
       }
     }
   }
