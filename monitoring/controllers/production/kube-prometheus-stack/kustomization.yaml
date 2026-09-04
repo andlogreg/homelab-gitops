@@ -7,4 +7,4 @@ resources:
 patches:
   - path: alertmanager-receivers.yaml
   - path: grafana-health-datasource.yaml
-  - path: kube-state-metrics-cnpg.yaml
+  - path: kube-state-metrics-backups.yaml

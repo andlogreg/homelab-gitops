@@ -1,5 +1,10 @@
 ---
-# Makes CNPG backup FRESHNESS observable. Nothing else here can do it.
+# Makes backup FRESHNESS observable, for both halves of the backup path. Nothing
+# else here can do it.
+#
+# ---------------------------------------------------------------------------
+# PART 1 - CNPG
+# ---------------------------------------------------------------------------
 #
 # Why this exists at all - it cost 5.7 days of silently-dead scheduled backups to
 # find out - is that the obvious metrics are a trap.
@@ -27,10 +32,10 @@
 # not by CloudNativePG. Searching the CNPG docs for them will find nothing. They carry
 # job="kube-state-metrics", which is the giveaway.
 #
-# NOT IN base/: helios does not install CNPG at all, so a custom-resource-state config
-# naming postgresql.cnpg.io there would reference a CRD that does not exist. This file
-# is duplicated in the staging overlay for the same reason. dev is left out too - it
-# has CNPG but no Velero and no backup path worth watching.
+# NOT IN base/: helios installs neither CNPG nor Velero, so a custom-resource-state
+# config naming postgresql.cnpg.io or velero.io there would reference CRDs that do not
+# exist. This file is duplicated in the staging overlay for the same reason. dev is
+# left out too - it has CNPG but no Velero and no backup path worth watching.
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
 metadata:
@@ -45,6 +50,9 @@ spec:
         extraRules:
           - apiGroups: ["postgresql.cnpg.io"]
             resources: ["backups", "scheduledbackups"]
+            verbs: ["list", "watch"]
+          - apiGroups: ["velero.io"]
+            resources: ["backuprepositories"]
             verbs: ["list", "watch"]
       customResourceState:
         enabled: true
@@ -95,3 +103,52 @@ spec:
                         labelName: phase
                         path: [status, phase]
                         list: [pending, started, running, completed, failed, walArchivingFailing]
+              # -----------------------------------------------------------------
+              # PART 2 - Velero / kopia
+              # -----------------------------------------------------------------
+              # The repository can be DEAD while every status field reads healthy.
+              # That is not hypothetical: staging's kopia repository was unopenable
+              # from 2026-08-13, and for 21 days
+              #
+              #   BackupRepository .status.phase        Ready
+              #   Schedule         .status.lastBackup   (today)
+              #   velero_backup_last_status             1
+              #
+              # all read exactly as they do on a healthy cluster. The backups were
+              # capturing every Kubernetes resource and zero bytes of volume data.
+              #
+              # velero_backup_last_status cannot express this and never will: Velero
+              # reports PartiallyFailed as 1, the same value as success. So the two
+              # outcome rules built on it (VeleroBackupFailed, VeleroBackupFailing)
+              # are structurally blind to a backup that succeeds at capturing
+              # nothing. Freshness again, not last-known-outcome.
+              #
+              # status.lastMaintenanceTime is the honest field. Velero advances it
+              # ONLY when a maintenance run succeeds - measured, not assumed: staging
+              # retried every 5 minutes for 22 days with recentMaintenance showing
+              # nothing but `repository not initialized in the provided storage`, and
+              # the timestamp never moved off 2026-08-13T20:27:28Z. Maintenance
+              # succeeding means the repository opened, which is the property no
+              # other field here reports.
+              #
+              # This is also the EARLY signal. VeleroNoNewBackup does catch this
+              # class, but only ~26-27h after the last good backup - i.e. after the
+              # next daily has already run and failed. Maintenance runs hourly, so
+              # this speaks up the same working day.
+              - groupVersionKind:
+                  group: velero.io
+                  version: v1
+                  kind: BackupRepository
+                metricNamePrefix: velero_backuprepository
+                labelsFromPath:
+                  namespace: [metadata, namespace]
+                  name: [metadata, name]
+                  volume_namespace: [spec, volumeNamespace]
+                  repository_type: [spec, repositoryType]
+                metrics:
+                  - name: last_maintenance_time
+                    help: "Unix time a kopia repository maintenance run last SUCCEEDED. Velero does not advance this on failure, so staleness means the repository could not be opened - while phase stays Ready and backups keep reporting success."
+                    each:
+                      type: Gauge
+                      gauge:
+                        path: [status, lastMaintenanceTime]

@@ -68,6 +68,37 @@ spec:
           annotations:
             summary: "Velero BackupStorageLocation {{ $labels.backup_location_name }} is unavailable"
             description: "Velero cannot reach its object store, so no backup can be written. 30m of tolerance is deliberate: the BSL legitimately goes Unavailable for ~90s during a credential rotation while kubelet refreshes the mounted secret."
+        # THE rule that would have caught staging on day one instead of day 21.
+        #
+        # A kopia repository whose format blob is gone is unopenable, and Velero
+        # reports that state as: phase Ready, backups PartiallyFailed, and
+        # velero_backup_last_status = 1. Nothing above can see it.
+        # velero_backuprepository_last_maintenance_time can, because Velero only
+        # advances it when maintenance actually SUCCEEDS - and maintenance
+        # succeeding is the same thing as the repository opening.
+        #
+        # 6h against a maintenanceFrequency of 1h0m0s: six missed cycles, and a
+        # failing repo retries every 5 minutes rather than hourly, so this is ~70
+        # consecutive failures before it fires. Well clear of a transient blob-store
+        # blip or a node-agent restart, and still the same working day - roughly 20h
+        # ahead of VeleroNoNewBackup, which only speaks after the next daily has
+        # already run and failed.
+        #
+        # NO absent() ARM, deliberately, and this is the opposite call from
+        # VeleroNoNewBackup above. A BackupRepository legitimately has no
+        # lastMaintenanceTime between creation and its first successful maintenance,
+        # so an absent() arm would page on every new repository and every cluster
+        # rebuild - precisely when someone is already watching. The gap that leaves -
+        # a repository that NEVER succeeds once - is not a gap: it produces no
+        # successful backups either, so VeleroNoNewBackup owns it.
+        - alert: VeleroRepoMaintenanceStale
+          expr: "(time() - velero_backuprepository_last_maintenance_time) > (6 * 3600)"
+          for: 1h
+          labels:
+            severity: critical
+          annotations:
+            summary: "Velero kopia repository {{ $labels.volume_namespace }} has not been maintained in over 6h"
+            description: "No kopia maintenance run has SUCCEEDED for repository {{ $labels.name }} in over 6 hours, which means Velero cannot open the repository. Expect .status.phase to still read Ready and recent backups to still report success - neither is evidence here. Check `kubectl -n velero get backuprepository {{ $labels.name }} -o jsonpath='{.status.recentMaintenance}'` for the real error, and verify kopia.repository still exists under the generation prefix in blob storage: a lifecycle rule deleting that write-once blob is what caused this on staging in 2026-08."
         # A backup that "succeeds" having captured nothing is the zero-byte case, and
         # it is indistinguishable from a healthy one in every status field.
         #
