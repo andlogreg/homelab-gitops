@@ -95,15 +95,14 @@ variable "blob_properties" {
 
 variable "lifecycle_management" {
   description = <<-EOT
-    Azure Blob lifecycle management for backup cleanup.
-    Rule A flat-deletes the frozen *-archive-pre-t12 containers after archive_retention_days.
-    Rule B deletes blobs under retired_generation_prefixes after cold_generation_retention_days
-    since last modification, and is not emitted at all when that list is empty.
+    Azure Blob lifecycle management for backup cleanup. One rule: it deletes blobs under
+    retired_generation_prefixes after cold_generation_retention_days since last modification, and
+    is not emitted at all when that list is empty.
 
     retired_generation_prefixes is an EXPLICIT list of "<container>/<path>/" prefixes belonging to
     generations a rebuild has retired. It defaults to empty, and the live generation must never
     appear in it. Retiring a generation is a deliberate act performed by a human during a rebuild,
-    not something a lifecycle rule can infer -- see the comment on Rule B in main.tf for the
+    not something a lifecycle rule can infer -- see the comment on the rule in main.tf for the
     incident that established this.
 
     cold_generation_retention_days is the window applied to those named prefixes. It no longer
@@ -113,7 +112,7 @@ variable "lifecycle_management" {
     and barman retention all prune the live generation from inside the cluster. enabled = false
     disables the policy entirely.
 
-    version_retention_days prunes non-current blob versions in both rules. It only does anything
+    version_retention_days prunes non-current blob versions under the same prefixes. It only does anything
     when blob_properties.versioning_enabled is true, and it is the reason versioning must not be
     enabled without this policy: nothing else deletes a version. Note it is NOT a safety net for a
     base blob the policy deletes: a version's age counts from version CREATION, so a write-once
@@ -121,14 +120,12 @@ variable "lifecycle_management" {
   EOT
   type = object({
     enabled                        = bool
-    archive_retention_days         = number
     cold_generation_retention_days = number
     version_retention_days         = number
     retired_generation_prefixes    = list(string)
   })
   default = {
     enabled                        = false
-    archive_retention_days         = 30
     cold_generation_retention_days = 30
     version_retention_days         = 30
     retired_generation_prefixes    = []

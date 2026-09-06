@@ -48,32 +48,21 @@ resource "azurerm_storage_container" "containers" {
   container_access_type = "private"
 }
 
-# Backup cleanup. Rule A flat-deletes the frozen pre-rebuild archives; Rule B deletes blobs under
-# the EXPLICITLY NAMED retired generation prefixes. Neither rule may ever match a live one.
+# Backup cleanup. One rule, and it deletes blobs only under the EXPLICITLY NAMED retired
+# generation prefixes. It may never match a live one.
+#
+# A second rule, "delete-frozen-archives", used to sit above this one. It flat-deleted the frozen
+# pre-rebuild archive containers (*-archive-pre-t12) on a days-since-modification window, it did
+# its job, and it was removed once those containers were deleted. A lifecycle rule whose targets
+# no longer exist is not free: it is a standing claim about behaviour that nothing exercises, and
+# on this account it would have been the one rule a reader could not test. This is also the family
+# of rule whose sibling logic destroyed a live kopia repository once -- see below -- so carrying
+# one fewer of them is worth something by itself.
 resource "azurerm_storage_management_policy" "backup_lifecycle" {
   count              = var.lifecycle_management.enabled ? 1 : 0
   storage_account_id = azurerm_storage_account.storage.id
 
-  # Rule A — frozen pre-rebuild archives (*-archive-pre-t12): flat delete.
-  rule {
-    name    = "delete-frozen-archives"
-    enabled = true
-    filters {
-      prefix_match = ["velero-backups-archive-pre-t12", "cnpg-backups-archive-pre-t12"]
-      blob_types   = ["blockBlob"]
-    }
-    actions {
-      base_blob {
-        delete_after_days_since_modification_greater_than = var.lifecycle_management.archive_retention_days
-      }
-      # No-op unless versioning is enabled. Nothing else ever deletes a non-current version.
-      version {
-        delete_after_days_since_creation = var.lifecycle_management.version_retention_days
-      }
-    }
-  }
-
-  # Rule B — retired generations, NAMED EXPLICITLY.
+  # Retired generations, NAMED EXPLICITLY.
   #
   # This rule used to carry the bare prefixes "velero-backups/" and "cnpg-backups/" and infer
   # "retired" from days-since-last-modification, on the assumption that a live generation is

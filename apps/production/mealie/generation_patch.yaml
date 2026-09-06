@@ -2,7 +2,7 @@
 #
 # The -01 generation was originally created by recovering from a frozen pre-rebuild barman
 # archive held in a separate *-archive-pre-t12 container. That archive has since been retired:
-# the container is empty, the ObjectStore that pointed at it is deleted, and the storage account
+# the container itself is deleted, the ObjectStore that pointed at it is gone, and the storage account
 # key it authenticated with no longer works. The bootstrap stanza that referenced it is therefore
 # gone too, and this patch now only carries the generation name -- the base cluster's own
 # bootstrap (initdb) applies to a from-scratch install, which is what a fresh cluster would be.

@@ -64,18 +64,31 @@ module "storage" {
     container_delete_retention_policy_days = 30
   }
 
-  # Backup cleanup: delete the frozen archives after 30d. Nothing sweeps the live backup
-  # containers -- see the Rule B comment in the module. The old rule swept them 30d after last
-  # write, on the premise that this was safely above the in-cluster Velero 20d TTL and CNPG 14d
-  # retention; the premise was false, because backup blobs are never rewritten, and it destroyed
-  # this environment's kopia repository on 2026-08-13.
+  # No lifecycle policy at all, and that is the accurate state rather than a gap.
   #
-  # The list is empty because staging genuinely has no retired generation: only
-  # phoenix-staging-g1 under velero-backups/, only *-db-01 under cnpg-backups/. Populate it at the
-  # next rebuild, when one is actually retired.
+  # Nothing sweeps the live backup containers -- see the rule's comment in the module. The old
+  # rule swept them 30d after last write, on the premise that this was safely above the
+  # in-cluster Velero 20d TTL and CNPG 14d retention; the premise was false, because backup blobs
+  # are never rewritten, and it destroyed this environment's kopia repository on 2026-08-13.
+  #
+  # That leaves staging with no rule to express: it genuinely has no retired generation (only
+  # phoenix-staging-g1 under velero-backups/, only *-db-01 under cnpg-backups/), so
+  # retired_generation_prefixes is empty and the rule is not emitted. Azure requires at least one
+  # rule in a policy, so an enabled policy with an empty rule set is not a no-op -- it is invalid.
+  # enabled = false is therefore the only honest encoding of "there is nothing to sweep here".
+  #
+  # Set this back to true, with prefixes, at the next rebuild -- when a generation is actually
+  # retired. Adding that prefix is a step in the rebuild runbook.
+  #
+  # KNOWN GAP, deliberately not closed here: non-current blob versions under the LIVE prefixes are
+  # pruned by nothing, on this account and on production, because a lifecycle rule's version
+  # action is scoped by the same prefix_match filter as its base_blob action. They accumulate
+  # indefinitely. The obvious fix -- a version-only rule over the live prefixes -- is not obviously
+  # correct: Azure ages a previous version from when the blob was FIRST WRITTEN, not from when it
+  # became non-current, so on write-once backup data such a rule deletes a version almost as soon
+  # as it is created, gutting the protection that versioning exists to provide. Tracked separately.
   lifecycle_management = {
-    enabled                        = true
-    archive_retention_days         = 30
+    enabled                        = false
     cold_generation_retention_days = 30
     version_retention_days         = 30
     retired_generation_prefixes    = []
