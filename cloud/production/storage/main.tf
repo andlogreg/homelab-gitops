@@ -64,7 +64,9 @@ module "storage" {
     container_delete_retention_policy_days = 30
   }
 
-  # Backup cleanup: delete blobs under the NAMED retired generations below 180d after last write.
+  # Backup cleanup, two rules with separated powers: blobs under the NAMED retired generations are
+  # deleted 180d after last write, and non-current VERSIONS anywhere in the two backup containers
+  # are deleted 180d after the blob was first written.
   #
   # The previous version of this comment claimed the 180d window was the total-loss recovery
   # window -- "~6 months to rebuild and restore before the latest backups are removed" -- and that
@@ -79,10 +81,19 @@ module "storage" {
   # storage on 2026-09-04 (1751 blobs, ~670 MB, nothing written since 2026-07-13). The live
   # generation -- velero-backups/phoenix-production-g1/, and cnpg-backups/{litellm,mealie}/*-db-01
   # and health/health-db-00 -- must never appear here.
+  # version_retention_days was 30 until 2026-09-06 and pruned nothing on this account: a version
+  # action is scoped by the same prefix_match as the base_blob action beside it, so it only ever
+  # covered the retired prefixes. Live versions accumulated from the day versioning was switched on
+  # (2026-07-30) -- 14,039 of them, 3.318 GiB across both containers, growing ~46 GiB/yr estate-wide
+  # and compounding. bound-blob-versions now covers the container roots, so the number applies to
+  # the whole account. 180d is set against detection lag, not cost: the 7-day blob soft-delete
+  # already covers anything noticed within a week, and this buys undo for a destructive accident
+  # nobody catches for up to six months. Production alerting (VeleroRepoMaintenanceStale at 6h,
+  # VeleroBackupCapturedNothing, four CNPG rules) makes that a wide margin.
   lifecycle_management = {
     enabled                        = true
     cold_generation_retention_days = 180
-    version_retention_days         = 30
+    version_retention_days         = 180
     retired_generation_prefixes = [
       "velero-backups/backups/",
       "velero-backups/kopia/",

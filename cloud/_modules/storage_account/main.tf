@@ -48,8 +48,17 @@ resource "azurerm_storage_container" "containers" {
   container_access_type = "private"
 }
 
-# Backup cleanup. One rule, and it deletes blobs only under the EXPLICITLY NAMED retired
-# generation prefixes. It may never match a live one.
+# Backup cleanup. Two rules, and the split between them is the point:
+#
+#   sweep-retired-generations  deletes BLOBS, and only under the EXPLICITLY NAMED retired
+#                              generation prefixes. It may never match a live one.
+#   bound-blob-versions        deletes non-current VERSIONS, across the whole backup surface.
+#                              It has no base_blob action, so it cannot touch live data.
+#
+# Deleting a blob and deleting a version are different powers, and only the first one is dangerous
+# here. Conflating them is what left version growth unbounded until 2026-09-06: a version action is
+# scoped by the same prefix_match as the base_blob action beside it, so putting version pruning
+# inside the retired-generation rule silently meant "prune versions under retired prefixes only".
 #
 # A second rule, "delete-frozen-archives", used to sit above this one. It flat-deleted the frozen
 # pre-rebuild archive containers (*-archive-pre-t12) on a days-since-modification window, it did
@@ -108,11 +117,76 @@ resource "azurerm_storage_management_policy" "backup_lifecycle" {
         base_blob {
           delete_after_days_since_modification_greater_than = var.lifecycle_management.cold_generation_retention_days
         }
-        # No-op unless versioning is enabled. Nothing else ever deletes a non-current version.
+        # Load-bearing, not decorative: "a lifecycle management policy will not delete the current
+        # version of a blob until any previous versions or snapshots associated with that blob have
+        # been deleted" (Azure lifecycle policy-structure doc). Retired prefixes acquire versions
+        # like any other, so without this action the base_blob delete above would stall on every
+        # blob that has one, and the retired generation would never finish going away.
+        #
+        # Same window as bound-blob-versions below, deliberately. The two rules overlap on the
+        # retired prefixes, and Azure does not define which wins when two rules specify the same
+        # action with different thresholds -- identical thresholds make the overlap a no-op instead
+        # of a question nobody can answer from the docs.
         version {
           delete_after_days_since_creation = var.lifecycle_management.version_retention_days
         }
       }
+    }
+  }
+
+  # Bound non-current version growth, across the WHOLE backup surface.
+  #
+  # This rule has NO base_blob action and must never acquire one. That is the entire reason it can
+  # safely carry the bare container prefixes that destroyed staging's kopia repository in the hands
+  # of the old sweep-cold-generations rule: a version action cannot touch a current blob. Azure
+  # scopes the version action by the same prefix_match as base_blob, which is exactly why the
+  # retired-generation rule above could never prune the live generation's versions -- its filter
+  # names retired prefixes only.
+  #
+  # Why the container roots rather than a list of live prefixes. A named list would have to be
+  # updated at every rebuild, and forgetting it is silent: versions simply start accumulating again
+  # with no symptom until someone enumerates the account. The container roots need no maintenance,
+  # cover the live generation, the retired ones, and the orphans left behind by an in-place
+  # repository rebuild that reuses its prefix (staging, 2026-09-05) -- which no per-generation list
+  # would ever catch.
+  #
+  # Why this window buys real protection despite the write-once trap. Azure ages a previous version
+  # from when the blob was FIRST WRITTEN, not from when it became non-current, so the protection a
+  # blob actually gets is (window - its lifetime). Barman WAL and base backups are deleted by CNPG
+  # retention at ~14d and Velero metadata at ~20d, so those keep ~160 days of undo -- and they are
+  # ~81% of the stored bytes. Long-lived kopia content blobs, pinned by deduplication for months,
+  # get correspondingly less. It is a protection horizon measured from birth, not a fixed window.
+  dynamic "rule" {
+    for_each = var.blob_properties.versioning_enabled ? [1] : []
+    content {
+      name    = "bound-blob-versions"
+      enabled = true
+      filters {
+        prefix_match = [for c in var.containers : "${c}/"]
+        blob_types   = ["blockBlob"]
+      }
+      actions {
+        version {
+          delete_after_days_since_creation = var.lifecycle_management.version_retention_days
+        }
+      }
+    }
+  }
+
+  # Azure requires at least one rule in a policy: an enabled policy with an empty rule set is
+  # INVALID, not inert. Both rules above are conditional, so this combination produces an empty
+  # policy and a confusing API error at apply time rather than at plan time.
+  lifecycle {
+    precondition {
+      condition = !var.lifecycle_management.enabled || (
+        length(var.lifecycle_management.retired_generation_prefixes) > 0 ||
+        var.blob_properties.versioning_enabled
+      )
+      error_message = join(" ", [
+        "lifecycle_management.enabled is true but no rule would be emitted:",
+        "retired_generation_prefixes is empty and versioning_enabled is false.",
+        "Azure rejects a policy with zero rules -- set enabled = false instead.",
+      ])
     }
   }
 }
