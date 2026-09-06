@@ -19,6 +19,21 @@ patches:
             containers:
               - name: ollama
                 resources:
+                  # requests must be set explicitly, and this is the whole reason the
+                  # pod is schedulable at all. Kubernetes defaults a request to its
+                  # limit per-resource, so a bare "cpu: 2" limit on a 2-core node asked
+                  # for 100% of allocatable CPU and the pod stayed Pending for months --
+                  # silently, since a Deployment that never schedules raises nothing.
+                  # The cpu limit stays at 2: it is a burst ceiling, not a reservation.
+                  requests:
+                    cpu: 250m
+                    # A floor, not a measured baseline. This node runs mostly BestEffort
+                    # pods, so an unbounded model server here would push the kubelet into
+                    # evicting the databases before it touched ollama. With a request and
+                    # a limit, a runaway load OOMKills this container instead: loud, and
+                    # the right victim. Revisit from real usage once it has run a while.
+                    memory: 512Mi
                   limits:
                     nvidia.com/gpu: 0 # No GPU for staging
                     cpu: "2"
+                    memory: 2Gi
