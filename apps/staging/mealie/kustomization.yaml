@@ -5,7 +5,6 @@ resources:
   - ../../base/mealie
   - external-secret-openai.yaml
   - ingress.yaml
-  - objectstore-archive.yaml
 
 configMapGenerator:
   - name: mealie-config
@@ -16,8 +15,8 @@ configMapGenerator:
 
 patches:
   - path: velero_backup_patch.yaml
-  # task-21: recover the CNPG db from the frozen pre-teardown archive (see recovery.yaml)
-  - path: recovery.yaml
+  # This overlay runs the -01 generation of the cluster (see generation_patch.yaml).
+  - path: generation_patch.yaml
     target:
       kind: Cluster
       name: mealie-db-00

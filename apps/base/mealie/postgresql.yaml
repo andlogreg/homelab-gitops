@@ -4,9 +4,10 @@ kind: Cluster
 # plugin uses the Cluster name as the serverName, so each generation gets its own dir
 # under `cnpg-backups/mealie/<mealie-db-NN>/`. On every cluster REBUILD, bump NN
 # (-00 -> -01 -> ...) so the fresh cluster cannot overwrite the previous generation's
-# WAL/base, and point recovery's externalCluster serverName at the prior NN (see
-# apps/production/mealie/recovery.yaml for the -00 -> -01 recovery). Never reuse a
-# retired NN; prune a retired serverName dir only after the new generation is healthy.
+# WAL/base, and point recovery's externalCluster serverName at the prior NN, using that
+# generation's LIVE ObjectStore (see the commented stanza below for the shape). Never reuse
+# a retired NN; prune a retired serverName dir only after the new generation is healthy, and
+# add the retired prefix to the storage account's retired-generation lifecycle rule.
 metadata:
   name: mealie-db-00
 spec:

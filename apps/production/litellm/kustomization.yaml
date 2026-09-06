@@ -4,12 +4,11 @@ namespace: litellm
 resources:
   - ../../base/litellm
   - ingress.yaml
-  - objectstore-archive.yaml
 
 patches:
   - path: external-secret.yaml
-  # task-21: recover the CNPG db from the frozen pre-teardown archive (see recovery.yaml)
-  - path: recovery.yaml
+  # This overlay runs the -01 generation of the cluster (see generation_patch.yaml).
+  - path: generation_patch.yaml
     target:
       kind: Cluster
       name: litellm-db-00

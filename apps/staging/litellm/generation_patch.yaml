@@ -1,0 +1,16 @@
+# Generation patch: this overlay runs the -01 generation of the litellm CNPG cluster.
+#
+# The -01 generation was originally created by recovering from a frozen pre-rebuild barman
+# archive held in a separate *-archive-pre-t12 container. That archive has since been retired:
+# the container is empty, the ObjectStore that pointed at it is deleted, and the storage account
+# key it authenticated with no longer works. The bootstrap stanza that referenced it is therefore
+# gone too, and this patch now only carries the generation name -- the base cluster's own
+# bootstrap (initdb) applies to a from-scratch install, which is what a fresh cluster would be.
+#
+# For the NEXT rebuild, follow the convention documented in the base cluster manifest: bump the
+# suffix (-01 -> -02) and point a recovery externalCluster at the PRIOR generation's live
+# ObjectStore, not at a frozen copy. Do not resurrect a serverName of litellm-db-00: that generation
+# is named in the storage account's retired-generation lifecycle rule and is being swept.
+- op: replace
+  path: /metadata/name
+  value: litellm-db-01
