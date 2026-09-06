@@ -17,6 +17,13 @@ terraform {
 
 provider "azurerm" {
   features {}
+
+  # Mandatory, not stylistic: with shared-key auth disabled below, the provider's own
+  # account-level data-plane call -- the post-create/refresh "wait for the Blob Service to
+  # become available" poll -- is NOT ARM and authenticates with the account key. Without
+  # this it fails with KeyBasedAuthenticationNotPermitted and taints a perfectly healthy
+  # account, after which the next plan proposes REPLACING it.
+  storage_use_azuread = true
 }
 
 provider "azuread" {}
@@ -39,6 +46,12 @@ module "storage" {
 
   # Common backup targets
   containers = ["cnpg-backups", "velero-backups"]
+
+  # No Shared Key auth. Every consumer now authenticates with a container-scoped Entra
+  # identity, so the account key has no consumer left -- and a key that cannot be used is
+  # inert even if it leaks, which no amount of soft-delete or versioning achieves.
+  # Reading blobs by hand requires --auth-mode login; omitting it is refused, by design.
+  shared_access_key_enabled = false
 
   # Data protection. Container soft-delete is the one that closes the total-loss case: it is the
   # only setting of the three that a holder of the storage account key cannot switch off, and
@@ -103,11 +116,5 @@ data "azurerm_key_vault" "kv" {
 resource "azurerm_key_vault_secret" "storage_account_name" {
   name         = "azure-main-storage-account-name"
   value        = module.storage.name
-  key_vault_id = data.azurerm_key_vault.kv.id
-}
-
-resource "azurerm_key_vault_secret" "storage_account_key" {
-  name         = "azure-main-storage-account-key"
-  value        = module.storage.primary_access_key
   key_vault_id = data.azurerm_key_vault.kv.id
 }
