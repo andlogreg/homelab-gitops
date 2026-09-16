@@ -5,6 +5,17 @@ resources:
   # NOTE: added in `configs` since velero needs to create the secret first
   # (and the ESO CRD must exist before these ExternalSecrets are applied —
   # controllers installs ESO, configs dependsOn controllers).
-  - external_secret.yaml
+  #
+  # There is deliberately NO ExternalSecret for `velero-repo-credentials` here.
+  # That Secret holds the kopia repository password, which encrypts the backup data
+  # client-side. Sourcing it from Key Vault would put the key and the ciphertext it
+  # decrypts inside the same cloud tenant, so it is self-managed in-cluster instead and
+  # the only other copy is offline. This is an intentional exception to the
+  # otherwise-uniform "all secrets via ESO" model, not an omission — do not "fix" it.
+  #
+  # ⚠ On a cluster rebuild this Secret MUST be recreated by hand BEFORE velero first
+  # runs. If it is missing Velero does not fail: it generates a fresh password, creates
+  # new repositories, and every pre-existing backup becomes permanently unreadable,
+  # silently.
   - external_secret_backup_creds.yaml
   - schedule.yaml
