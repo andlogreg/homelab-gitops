@@ -64,11 +64,26 @@ module "storage" {
     container_delete_retention_policy_days = 30
   }
 
-  # Lifecycle policy: ONE rule, and it is bound-blob-versions. There is still no
-  # sweep-retired-generations here, because staging has genuinely retired no generation (only
-  # phoenix-staging-g1/ under velero-backups/, only *-db-01 under cnpg-backups/), so
-  # retired_generation_prefixes stays empty and that rule is not emitted. Set it, with prefixes, at
-  # the next rebuild that actually retires one -- a step in the rebuild runbook.
+  # Lifecycle policy: TWO rules now. bound-blob-versions has always been here;
+  # sweep-retired-generations is emitted on this account for the first time, because staging has
+  # finally retired a generation. Until 2026-09-17 retired_generation_prefixes was empty and that
+  # rule was not emitted at all, with a note here saying to set it "at the next rebuild that
+  # actually retires one". What retired one was not a rebuild: the kopia repository password was
+  # rotated, and since Velero cannot re-key a repository in place, a new password can only take
+  # effect on a repository initialised under a new prefix. phoenix-staging-g1/ went cold that day
+  # and phoenix-staging-g2/ became live.
+  #
+  # So the generation counter is not a rebuild counter. Anything that needs fresh kopia key
+  # material advances it, and this list must be extended whenever it advances -- otherwise the
+  # outgoing prefix sits here forever, still openable by a password that is no longer in use.
+  #
+  # (Only *-db-01 under cnpg-backups/ remains live and unretired: the Postgres backups are not
+  # client-side encrypted, so no kopia key rotation touches them and their serverName did not move.)
+  #
+  # WARNING: the OLD repository password is the only key to everything under the retired prefix,
+  # and it stays needed until this rule has finished clearing it -- 180d after the last write to
+  # that prefix, so roughly 2027-03. Keep it until then, and do not delete those blobs by hand to
+  # hurry it along: they are the only restore path for anything taken before the rotation.
   #
   # The old rule swept the live containers 30d after last write, on the premise that this sat safely
   # above the in-cluster Velero 20d TTL and CNPG 14d retention. The premise was false, because backup
@@ -90,7 +105,7 @@ module "storage" {
     enabled                        = true
     cold_generation_retention_days = 180
     version_retention_days         = 180
-    retired_generation_prefixes    = []
+    retired_generation_prefixes    = ["velero-backups/phoenix-staging-g1/"]
   }
 
   tags = {
