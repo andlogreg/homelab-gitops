@@ -77,10 +77,27 @@ module "storage" {
   # Nothing sweeps the live generation any more, so the total-loss window is now indefinite --
   # strictly better for the purpose the 180d figure was chosen to serve.
   #
-  # The prefixes below are the generations the 2026-07-12/13 rebuild retired, verified against blob
-  # storage on 2026-09-04 (1751 blobs, ~670 MB, nothing written since 2026-07-13). The live
-  # generation -- velero-backups/phoenix-production-g1/, and cnpg-backups/{litellm,mealie}/*-db-01
-  # and health/health-db-00 -- must never appear here.
+  # The first four prefixes below are the generations the 2026-07-12/13 rebuild retired, verified
+  # against blob storage on 2026-09-04 (1751 blobs, ~670 MB, nothing written since 2026-07-13).
+  #
+  # phoenix-production-g1/ joined them on 2026-09-17, and NOT because of a rebuild: the kopia
+  # repository password was rotated, and since Velero cannot re-key a repository in place, a new
+  # password can only take effect on a repository initialised under a new prefix. So the generation
+  # counter is not a rebuild counter -- anything needing fresh kopia key material advances it, and
+  # this list must be extended whenever it does, or the outgoing prefix sits here forever still
+  # openable by a password that is no longer in use.
+  #
+  # WARNING: the OLD repository password is the only key to everything under phoenix-production-g1/,
+  # and it stays needed until this rule has finished clearing it -- 180d after the last write to
+  # that prefix, so roughly 2027-03. Keep it until then, and do not delete those blobs by hand to
+  # hurry it along: they are the only restore path for anything taken before the rotation. That
+  # includes the ONLY copy of n8n's volume, which no longer has a repository of its own being
+  # written to -- n8n is not in the daily Schedule and is a recorded accept-loss.
+  #
+  # The live generation -- velero-backups/phoenix-production-g2/, and
+  # cnpg-backups/{litellm,mealie}/*-db-01 and health/health-db-00 -- must never appear here. The
+  # CNPG serverNames did not move: those backups are not client-side encrypted, so no kopia key
+  # rotation touches them.
   # version_retention_days was 30 until 2026-09-06 and pruned nothing on this account: a version
   # action is scoped by the same prefix_match as the base_blob action beside it, so it only ever
   # covered the retired prefixes. Live versions accumulated from the day versioning was switched on
@@ -97,6 +114,7 @@ module "storage" {
     retired_generation_prefixes = [
       "velero-backups/backups/",
       "velero-backups/kopia/",
+      "velero-backups/phoenix-production-g1/",
       "cnpg-backups/litellm/litellm-db-00/",
       "cnpg-backups/mealie/mealie-db-00/",
     ]
