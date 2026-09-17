@@ -2,12 +2,23 @@
 # VELERO_BSL_PREFIX is the backup generation: Velero writes under
 # velero-backups/<VELERO_BSL_PREFIX>/, so a rebuilt cluster starts on a clean
 # prefix and its TTL-GC can never delete the previous generation's backups.
-# Bump the -gN on every cluster rebuild (kept in lockstep with the CNPG
-# Cluster -NN serverName in apps/base/*/postgresql.yaml).
+# Bump the -gN on every cluster rebuild. A rebuild bumps this and the CNPG
+# Cluster -NN serverName in apps/base/*/postgresql.yaml together, but the two
+# counters are NOT locked to each other and will drift apart: this one also
+# advances on its own whenever the kopia repository password is rotated, since
+# Velero offers no way to re-key a repository in place and a new prefix is the
+# only mechanism for landing a new password on fresh key material. The CNPG
+# backups are not client-side encrypted, so no kopia key rotation touches them
+# and bumping their serverName in sympathy would force a fresh base backup for
+# nothing. Do not "resynchronise" the two numbers.
+#
+# Retiring a generation is a manual step: add the OLD prefix to
+# retired_generation_prefixes in cloud/<env>/storage so the sweep eventually
+# clears it, and keep the old repository password until it has.
 apiVersion: v1
 kind: ConfigMap
 metadata:
   name: cluster-vars
   namespace: flux-system
 data:
-  VELERO_BSL_PREFIX: phoenix-staging-g1
+  VELERO_BSL_PREFIX: phoenix-staging-g2
