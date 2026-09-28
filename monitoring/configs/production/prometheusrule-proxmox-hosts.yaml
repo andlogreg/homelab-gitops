@@ -143,3 +143,13 @@ spec:
           annotations:
             summary: "CPU package temperature {{ $value | printf \"%.0f\" }} C on {{ $labels.instance }}"
             description: "Sustained above 80 C for 15 minutes (normal here is 50-58 C). Check fans, dust and airflow before the CPU starts thermal-throttling."
+        # SMART attribute 194. WD rates the drive 0-70 C as the drive itself
+        # reports it; lifetime peaks here are 52 C (david-i) and 48 C (david-ii).
+        - alert: ProxmoxHostSsdTemperatureHigh
+          expr: 'max by (instance, disk) (smartmon_temperature_celsius_raw_value{job="proxmox-node"}) > 60'
+          for: 15m
+          labels:
+            severity: warning
+          annotations:
+            summary: "SSD temperature {{ $value | printf \"%.0f\" }} C on {{ $labels.instance }} {{ $labels.disk }}"
+            description: "Sustained above 60 C for 15 minutes (normal here is 35-45 C; the drive is rated to 70 C). Check airflow and the room temperature, and whether a long sustained write is running."
