@@ -101,10 +101,11 @@ spec:
               matchers:
                 - alertname = "HomeAssistantDown"
               repeat_interval: 24h
-            # Proxmox host CPU or SSD running hot: a same-day fix, so a daily repeat.
+            # Proxmox host CPU or SSD running hot, or the CPU power cap that keeps it cool
+            # gone: a same-day fix, so a daily repeat.
             - receiver: telegram
               matchers:
-                - alertname =~ "ProxmoxHostCpuTemperatureHigh|ProxmoxHostSsdTemperatureHigh"
+                - alertname =~ "ProxmoxHostCpuTemperatureHigh|ProxmoxHostSsdTemperatureHigh|ProxmoxHostPowerCapMissing"
               repeat_interval: 24h
             - receiver: telegram
               matchers:

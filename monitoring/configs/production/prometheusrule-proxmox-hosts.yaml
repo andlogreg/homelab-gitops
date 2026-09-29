@@ -153,3 +153,16 @@ spec:
           annotations:
             summary: "SSD temperature {{ $value | printf \"%.0f\" }} C on {{ $labels.instance }} {{ $labels.disk }}"
             description: "Sustained above 60 C for 15 minutes (normal here is 35-45 C; the drive is rated to 70 C). Check airflow and the room temperature, and whether a long sustained write is running."
+        # david-ii's cooler cannot hold the firmware's 20 W under sustained turbo, so the
+        # host sets a 10 W long-term limit at boot. Keep the threshold in step with it.
+        # absent() covers the exporter losing the series, which would otherwise read as fine.
+        - alert: ProxmoxHostPowerCapMissing
+          expr: >-
+            max by (instance) (rapl_power_limit_watts{job="proxmox-node",instance="david-ii",zone="package-0",constraint="long_term"}) > 10
+            or absent(rapl_power_limit_watts{job="proxmox-node",instance="david-ii",zone="package-0",constraint="long_term"})
+          for: 15m
+          labels:
+            severity: warning
+          annotations:
+            summary: "CPU power cap not in place on {{ $labels.instance }}"
+            description: "The long-term RAPL limit on {{ $labels.instance }} is above its 10 W cap, or no longer exported. Under a long heavy job the CPU will now run to its thermal limit. Check cpu-power-limit.service on the host and re-run the Ansible role."
