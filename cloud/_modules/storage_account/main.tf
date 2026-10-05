@@ -5,12 +5,15 @@ resource "azurerm_storage_account" "storage" {
 
   account_tier             = var.account_tier
   account_replication_type = var.account_replication_type
+  access_tier              = var.access_tier
 
   https_traffic_only_enabled = true
   min_tls_version            = "TLS1_2"
   is_hns_enabled             = var.is_hns_enabled
   shared_access_key_enabled  = var.shared_access_key_enabled
   tags                       = var.tags
+
+  allow_nested_items_to_be_public = var.allow_nested_items_to_be_public
 
   # Emitted only when the rules actually restrict something (see the variable's description).
   dynamic "network_rules" {

@@ -26,6 +26,25 @@ variable "account_replication_type" {
   default     = "LRS"
 }
 
+variable "access_tier" {
+  description = <<-EOT
+    Default access tier for blobs written without an explicit tier (Hot, Cool or Cold). Null keeps
+    the provider's default, Hot. Changing it later re-tiers every blob that inferred the old value.
+  EOT
+  type        = string
+  default     = null
+}
+
+variable "allow_nested_items_to_be_public" {
+  description = <<-EOT
+    Whether a container may be switched to anonymous read. Null keeps the provider's default, true.
+    Storage Blob Data Contributor includes containers/write, so a container-scoped identity could
+    otherwise make its own container public.
+  EOT
+  type        = bool
+  default     = null
+}
+
 variable "is_hns_enabled" {
   description = "Is Hierarchical Namespace enabled."
   type        = bool
