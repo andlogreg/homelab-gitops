@@ -111,6 +111,9 @@ spec:
         kubeProxy: false
     kubelet:
       serviceMonitor:
+        # The chart default is 10s. Nothing downstream reads finer than a minute:
+        # the rules use 5m windows, and Grafana evaluates at the 60s scrape interval.
+        cAdvisorInterval: 60s
         metricRelabelings:
           # Reduce bucket cardinality of kubelet storage operations.
           - action: drop
