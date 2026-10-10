@@ -107,6 +107,14 @@ spec:
               matchers:
                 - alertname =~ "ProxmoxHostCpuTemperatureHigh|ProxmoxHostSsdTemperatureHigh|ProxmoxHostPowerCapMissing"
               repeat_interval: 24h
+            # A failing SATA link can drop its disk a minute after the first error, so
+            # these skip the minute of grouping that the severity route below applies.
+            - receiver: telegram
+              matchers:
+                - alertname =~ "ProxmoxHostSataLinkErrors|ProxmoxHostSataLinkSlowed"
+              group_wait: 0s
+              group_interval: 1m
+              repeat_interval: 12h
             - receiver: telegram
               matchers:
                 - severity = "critical"

@@ -128,6 +128,40 @@ spec:
             summary: "node_exporter textfile collector is erroring on {{ $labels.instance }}"
             description: "node_exporter could not parse a textfile on {{ $labels.instance }}. Any metric fed by that file is now stale or missing."
 
+    # A failing SATA link gives minutes of warning before the disk drops out: 16, about 1
+    # and about 2.6 minutes in the three failures on david-ii in October 2026. Production's
+    # Prometheus runs on that disk, so the hosts also ping healthchecks.io themselves.
+    # sata-link.sh on each host writes these every 15 s; with this group's 15 s interval
+    # an alert fires within ~90 s of the first error. node_exporter has no SATA metrics.
+    - name: proxmox-host-sata-link
+      interval: 15s
+      rules:
+        # The error count latches until the next boot: a link that failed once is suspect.
+        # Silence it if a one-off error is understood and accepted.
+        - alert: ProxmoxHostSataLinkErrors
+          expr: 'sata_device_errors_after_boot{job="proxmox-node"} > 0'
+          labels:
+            severity: critical
+          annotations:
+            summary: "{{ if eq $labels.device \"synthetic\" }}TEST, nothing is wrong: {{ end }}SATA link errors on {{ $labels.instance }} ({{ $labels.device }})"
+            description: "libata logged {{ $value }} link errors since boot. The disk may drop out within minutes: stop heavy jobs, and read sata_phy_event_count before any power cycle, which clears it."
+        - alert: ProxmoxHostSataLinkSlowed
+          expr: 'sata_link_speed_limit_gbps{job="proxmox-node"} > 0'
+          labels:
+            severity: critical
+          annotations:
+            summary: "SATA link capped at {{ $value }} Gbps on {{ $labels.instance }} ({{ $labels.link }})"
+            description: "libata slowed the link after repeated errors, the last step before a disk drops out. Stop heavy jobs now."
+        # The rules above are blind if the collector stops, which looks exactly like healthy.
+        - alert: SataLinkCollectorStale
+          expr: '(time() - sata_textfile_run_timestamp_seconds{job="proxmox-node"}) > 300'
+          for: 15m
+          labels:
+            severity: warning
+          annotations:
+            summary: "SATA link collector is stale on {{ $labels.instance }}"
+            description: "sata-link.sh has not written for over 5 minutes on {{ $labels.instance }}, so a failing link would raise nothing. Check sata-link.timer."
+
     - name: proxmox-host-thermal
       rules:
         # No upstream rule exists for this anywhere - node-exporter ships hwmon
