@@ -19,6 +19,10 @@ resources:
   # this is the always-on plane and only production notifies.
   - probe-homeassistant.yaml
   - prometheusrule-homeassistant.yaml
+  # The personal-data hub VM: its node_exporter, a PhotoPrism probe, and their rules.
+  - scrapeconfig-hub.yaml
+  - probe-photoprism.yaml
+  - prometheusrule-hub.yaml
 
 # Dashboard-as-code: the kube-prometheus-stack Grafana sidecar auto-imports
 # ConfigMaps labelled grafana_dashboard=1 from the monitoring namespace.

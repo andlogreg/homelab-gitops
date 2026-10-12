@@ -1,0 +1,86 @@
+---
+# Rules for the personal-data hub VM: Syncthing for every device, PhotoPrism and the photo
+# library. Its backups are watched from outside the estate, not here.
+#
+# One alert per failure: while the hub does not answer, its series go stale and only HubDown
+# fires. The absent() arms catch a watch that disappears, so silence still means healthy.
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: hub
+  namespace: monitoring
+spec:
+  groups:
+    - name: hub
+      rules:
+        - alert: HubDown
+          expr: 'up{job="hub"} == 0 or absent(up{job="hub"})'
+          for: 15m
+          labels:
+            severity: warning
+          annotations:
+            summary: "The hub has not answered Prometheus for 15 minutes"
+            description: >-
+              The hub VM, or its node_exporter, is down. If it is the VM, sync for every device,
+              PhotoPrism and the backups have stopped with it.
+        - alert: HubFilesystemSpaceLow
+          expr: |-
+            node_filesystem_avail_bytes{job="hub",mountpoint=~"/|/srv/data"}
+              / node_filesystem_size_bytes{job="hub",mountpoint=~"/|/srv/data"} * 100 < 10
+            and node_filesystem_readonly{job="hub",mountpoint=~"/|/srv/data"} == 0
+          for: 1h
+          labels:
+            severity: warning
+          annotations:
+            summary: "hub {{ $labels.mountpoint }} is below 10% free"
+            description: "Only {{ $value | printf \"%.1f\" }}% of {{ $labels.mountpoint }} remains on the hub."
+        # Syncthing stops syncing a folder below 1% free, its minDiskFree.
+        - alert: HubFilesystemAlmostFull
+          expr: |-
+            node_filesystem_avail_bytes{job="hub",mountpoint=~"/|/srv/data"}
+              / node_filesystem_size_bytes{job="hub",mountpoint=~"/|/srv/data"} * 100 < 4
+            and node_filesystem_readonly{job="hub",mountpoint=~"/|/srv/data"} == 0
+          for: 30m
+          labels:
+            severity: critical
+          annotations:
+            summary: "hub {{ $labels.mountpoint }} is nearly full ({{ $value | printf \"%.1f\" }}% free)"
+            description: "Syncthing stops syncing a folder on /srv/data below 1% free."
+        - alert: HubFilesystemReadOnly
+          expr: 'node_filesystem_readonly{job="hub",mountpoint=~"/|/srv/data"} == 1'
+          for: 15m
+          labels:
+            severity: critical
+          annotations:
+            summary: "The hub has remounted {{ $labels.mountpoint }} read-only"
+            description: "A read-only remount almost always follows an I/O error. Nothing on it can be written: check the hub's kernel log, then david-ii's disk."
+        - alert: HubSyncthingDown
+          expr: |-
+            node_systemd_unit_state{job="hub",name="syncthing@syncthing.service",state="active"} == 0
+            or (absent(node_systemd_unit_state{job="hub",name="syncthing@syncthing.service",state="active"})
+                and on() up{job="hub"} == 1)
+          for: 15m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Syncthing is not running on the hub"
+            description: "syncthing@syncthing.service has not been active for 15 minutes. Every device syncs through the hub, so sync has stopped everywhere."
+        - alert: HubPhotoPrismDown
+          expr: |-
+            (probe_success{job="photoprism"} == 0 and on() up{job="hub"} == 1)
+            or absent(probe_success{job="photoprism"})
+          for: 15m
+          labels:
+            severity: warning
+          annotations:
+            summary: "PhotoPrism on the hub is not serving"
+            description: "PhotoPrism's /readyz has failed for 15 minutes. Imports and the web UI are down."
+        # Syncthing and PhotoPrism restart within seconds of being killed, so nothing else
+        # would show it.
+        - alert: HubOomKill
+          expr: 'increase(node_vmstat_oom_kill{job="hub"}[1h]) > 0'
+          labels:
+            severity: warning
+          annotations:
+            summary: "The kernel killed a process for lack of memory on the hub"
+            description: "An OOM kill happened on the hub in the last hour. The hub's kernel log names the process."

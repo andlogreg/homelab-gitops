@@ -1,0 +1,15 @@
+apiVersion: monitoring.coreos.com/v1alpha1
+kind: ScrapeConfig
+metadata:
+  name: hub
+  namespace: monitoring
+spec:
+  # node_exporter on the personal-data hub VM. Its own job, so the chart's node-exporter
+  # rules and recording rules leave it alone; prometheusrule-hub.yaml holds its rules.
+  staticConfigs:
+    - targets: ["192.168.0.44:9100"]
+      labels:
+        instance: hub
+  relabelings:
+    - targetLabel: job
+      replacement: hub
