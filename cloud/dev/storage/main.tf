@@ -34,6 +34,8 @@ module "storage" {
   # Common backup targets
   containers = ["cnpg-backups", "velero-backups"]
 
+  allow_nested_items_to_be_public = false
+
   tags = {
     environment = "dev"
     project     = "homelab"

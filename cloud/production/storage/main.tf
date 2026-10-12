@@ -53,6 +53,8 @@ module "storage" {
   # Reading blobs by hand requires --auth-mode login; omitting it is refused, by design.
   shared_access_key_enabled = false
 
+  allow_nested_items_to_be_public = false
+
   # Data protection. Container soft-delete is the one that closes the total-loss case: it is the
   # only setting of the three that a holder of the storage account key cannot switch off, and
   # deleting a container is what destroys soft-deleted blobs. Versioning covers the variant

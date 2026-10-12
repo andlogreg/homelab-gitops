@@ -37,12 +37,12 @@ variable "access_tier" {
 
 variable "allow_nested_items_to_be_public" {
   description = <<-EOT
-    Whether a container may be switched to anonymous read. Null keeps the provider's default, true.
-    Storage Blob Data Contributor includes containers/write, so a container-scoped identity could
-    otherwise make its own container public.
+    Whether a container may be switched to anonymous read. Defaults to false here: the provider's
+    own default is true. Storage Blob Data Contributor includes containers/write, so a
+    container-scoped identity could otherwise make its own container public.
   EOT
   type        = bool
-  default     = null
+  default     = false
 }
 
 variable "is_hns_enabled" {

@@ -44,6 +44,8 @@ module "storage" {
   # working account key to begin with, so there is no later cutover needed.
   shared_access_key_enabled = false
 
+  allow_nested_items_to_be_public = false
+
   # Blob versioning + soft-delete. No lifecycle_management policy: retention is indefinite, on
   # purpose -- this account holds a write-once archive, so there should be no overwrites
   # generating blob versions for a pruning rule to clean up. If versions start accumulating,
