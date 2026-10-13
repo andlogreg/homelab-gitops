@@ -162,6 +162,39 @@ spec:
             summary: "SATA link collector is stale on {{ $labels.instance }}"
             description: "sata-link.sh has not written for over 5 minutes on {{ $labels.instance }}, so a failing link would raise nothing. Check sata-link.timer."
 
+    # Every guest disk on a host is a thin volume in one LVM pool, so a full pool fails every
+    # guest's writes at once, and full metadata needs an offline repair. thin-pool.sh on each
+    # host writes these every minute; node_exporter has no LVM metrics.
+    - name: proxmox-host-thin-pool
+      rules:
+        - alert: ProxmoxHostThinPoolSpaceLow
+          expr: 'lvm_thin_pool_used_ratio{job="proxmox-node"} >= 0.8'
+          for: 15m
+          labels:
+            severity: warning
+          annotations:
+            summary: "{{ if eq $labels.vg \"test\" }}TEST, nothing is wrong: {{ end }}Thin pool {{ $labels.vg }}/{{ $labels.pool }} on {{ $labels.instance }} is {{ $value | humanizePercentage }} full ({{ $labels.space }})"
+            description: "The pool holds every guest disk on {{ $labels.instance }}. Full data makes every guest's writes fail after 60 s, and full metadata needs an offline repair. Find what is growing before it reaches 90%."
+        - alert: ProxmoxHostThinPoolAlmostFull
+          expr: 'lvm_thin_pool_used_ratio{job="proxmox-node"} >= 0.9'
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: "{{ if eq $labels.vg \"test\" }}TEST, nothing is wrong: {{ end }}Thin pool {{ $labels.vg }}/{{ $labels.pool }} on {{ $labels.instance }} is {{ $value | humanizePercentage }} full ({{ $labels.space }})"
+            description: "Stop whatever is writing, or extend the pool into the volume group's free space (alerting runbook). Full data makes every guest's writes on {{ $labels.instance }} fail after 60 s, and full metadata needs an offline repair."
+        # The second arm catches a host that answers without the collector's file.
+        - alert: ThinPoolCollectorStale
+          expr: |-
+            time() - thin_pool_textfile_run_timestamp_seconds{job="proxmox-node"} > 300
+            or (up{job="proxmox-node"} == 1 unless on (instance) thin_pool_textfile_run_timestamp_seconds{job="proxmox-node"})
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Thin pool collector is stale on {{ $labels.instance }}"
+            description: "thin-pool.sh has not written for over 5 minutes on {{ $labels.instance }}, so a filling pool would raise nothing. Check thin-pool.timer."
+
     - name: proxmox-host-thermal
       rules:
         # No upstream rule exists for this anywhere - node-exporter ships hwmon

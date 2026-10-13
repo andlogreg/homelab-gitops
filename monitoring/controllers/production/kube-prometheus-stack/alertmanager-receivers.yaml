@@ -121,6 +121,13 @@ spec:
               matchers:
                 - alertname =~ "HubDown|HubFilesystemSpaceLow|HubSyncthingDown|HubPhotoPrismDown|HubOomKill"
               repeat_interval: 24h
+            # A host's thin pool filling, or a host collector that stopped and so reads as
+            # healthy. Same-day problems, so a daily repeat. ProxmoxHostThinPoolAlmostFull is
+            # critical and rides the severity route.
+            - receiver: telegram
+              matchers:
+                - alertname =~ "ProxmoxHostThinPoolSpaceLow|ThinPoolCollectorStale|SmartTextfileCollectorStale"
+              repeat_interval: 24h
             - receiver: telegram
               matchers:
                 - severity = "critical"
