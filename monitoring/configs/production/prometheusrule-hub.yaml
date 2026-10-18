@@ -84,3 +84,34 @@ spec:
           annotations:
             summary: "The kernel killed a process for lack of memory on the hub"
             description: "An OOM kill happened on the hub in the last hour. The hub's kernel log names the process."
+        # The Magsafe drive's refresh (hub-backup offline). Its units exist only while in use, so
+        # no absent() arms. Warning, not info: the chart's InfoInhibitor would hold an info back.
+        - alert: HubMagsafeSafeToUnplug
+          expr: |-
+            node_systemd_unit_state{job="hub",name="dev-disk-by\\x2duuid-67AF\\x2d46AC.device",state="active"} == 1
+            unless on() node_systemd_unit_state{job="hub",name="hub-backup@offline.service",state=~"activating|deactivating"} == 1
+            unless on() node_systemd_unit_state{job="hub",name="mnt-offline.mount",state=~"activating|active|deactivating"} == 1
+          for: 2m
+          labels:
+            severity: warning
+          annotations:
+            summary: "The Magsafe refresh has finished, and the drive is safe to unplug"
+            description: "It is unmounted. Unplug it from david-ii: it is kept offline between refreshes. This repeats daily while it stays plugged in."
+        - alert: HubMagsafeStillMounted
+          expr: |-
+            node_systemd_unit_state{job="hub",name="mnt-offline.mount",state="active"} == 1
+            unless on() node_systemd_unit_state{job="hub",name="hub-backup@offline.service",state=~"activating|deactivating"} == 1
+          for: 2m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Do not unplug the Magsafe drive: it is still mounted"
+            description: "No refresh is running, but /mnt/offline is still mounted on the hub. Unplugged now, its exFAT could be damaged. The hub runbook says how to unmount it."
+        - alert: HubMagsafeRefreshStuck
+          expr: 'node_systemd_unit_state{job="hub",name="hub-backup@offline.service",state="activating"} == 1'
+          for: 2h
+          labels:
+            severity: warning
+          annotations:
+            summary: "Do not unplug the Magsafe drive: its refresh has run for 2 hours"
+            description: "A refresh takes about 15 minutes, so this one is stuck or waiting for another job's lock. Its journal on the hub says which: journalctl -u hub-backup@offline"

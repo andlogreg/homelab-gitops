@@ -115,11 +115,12 @@ spec:
               group_wait: 0s
               group_interval: 1m
               repeat_interval: 12h
-            # The hub's warnings: sync, PhotoPrism or the VM down, a filling disk, an OOM kill.
-            # Same-day problems, so a daily repeat. Its criticals ride the severity route.
+            # The hub's warnings: sync, PhotoPrism or the VM down, a filling disk, an OOM kill, and
+            # when the Magsafe drive may be unplugged. Same-day problems, so a daily repeat. Its
+            # criticals ride the severity route.
             - receiver: telegram
               matchers:
-                - alertname =~ "HubDown|HubFilesystemSpaceLow|HubSyncthingDown|HubPhotoPrismDown|HubOomKill"
+                - alertname =~ "HubDown|HubFilesystemSpaceLow|HubSyncthingDown|HubPhotoPrismDown|HubOomKill|HubMagsafeSafeToUnplug|HubMagsafeStillMounted|HubMagsafeRefreshStuck"
               repeat_interval: 24h
             # A host's thin pool filling, or a host collector that stopped and so reads as
             # healthy. Same-day problems, so a daily repeat. ProxmoxHostThinPoolAlmostFull is
