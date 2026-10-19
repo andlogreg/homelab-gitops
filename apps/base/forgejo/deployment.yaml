@@ -78,6 +78,11 @@ spec:
       containers:
       - name: forgejo
         image: data.forgejo.org/forgejo/forgejo:14.0.5-rootless
+        # Requests from 10 days of measured usage (Oct 2026); no limits on purpose.
+        resources:
+          requests:
+            cpu: 10m
+            memory: 896Mi
         securityContext:
           allowPrivilegeEscalation: false
           capabilities:

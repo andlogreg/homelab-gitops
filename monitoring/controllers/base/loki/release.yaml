@@ -55,6 +55,11 @@ spec:
     deploymentMode: SingleBinary
     singleBinary:
       replicas: 1
+      # Requests from 10 days of measured usage (Oct 2026); no limits on purpose.
+      resources:
+        requests:
+          cpu: 15m
+          memory: 192Mi
       persistence:
         enabled: true
         size: 2Gi

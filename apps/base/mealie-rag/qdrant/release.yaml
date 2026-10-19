@@ -13,3 +13,9 @@ spec:
               kind: HelmRepository
               name: qdrant
           interval: 12h
+  values:
+    # Requests from 10 days of measured usage (Oct 2026); no limits on purpose.
+    resources:
+      requests:
+        cpu: 10m
+        memory: 64Mi

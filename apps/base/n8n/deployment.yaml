@@ -26,6 +26,11 @@ spec:
       containers:
         - name: n8n
           image: n8nio/n8n:2.37.4
+          # Requests from 10 days of measured usage (Oct 2026); no limits on purpose.
+          resources:
+            requests:
+              cpu: 10m
+              memory: 512Mi
           securityContext:
             allowPrivilegeEscalation: false
             runAsUser: 1000

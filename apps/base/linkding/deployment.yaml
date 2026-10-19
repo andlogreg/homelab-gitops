@@ -28,6 +28,11 @@ spec:
       containers:
         - name: linkding
           image: sissbruecker/linkding:1.46.2
+          # Requests from 10 days of measured usage (Oct 2026); no limits on purpose.
+          resources:
+            requests:
+              cpu: 10m
+              memory: 256Mi
           ports:
             - containerPort: 9090
           envFrom:

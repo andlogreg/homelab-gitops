@@ -65,6 +65,11 @@ spec:
           dockercontainers: false
         clustering:
           enabled: false
+        # Requests from 10 days of measured usage (Oct 2026); no limits on purpose.
+        resources:
+          requests:
+            cpu: 40m
+            memory: 320Mi
 
     alloy-profiles:
       enabled: false

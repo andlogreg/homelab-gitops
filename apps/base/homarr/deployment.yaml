@@ -20,6 +20,11 @@ spec:
       containers:
         - name: homarr
           image: ghcr.io/homarr-labs/homarr:v1.76.2
+          # Requests from 10 days of measured usage (Oct 2026); no limits on purpose.
+          resources:
+            requests:
+              cpu: 10m
+              memory: 192Mi
           ports:
             - containerPort: 7575
           envFrom:

@@ -13,6 +13,13 @@ metadata:
 spec:
   instances: 1
 
+  # Requests from 10 days of measured usage (Oct 2026); no limits on purpose.
+  # Not Guaranteed, as CloudNativePG suggests: a memory limit would turn a spike into a crash.
+  resources:
+    requests:
+      cpu: 25m
+      memory: 128Mi
+
   # The instance pod already serves metrics on :9187; this only creates the PodMonitor
   # that makes Prometheus scrape it. Needed for WAL-archiving alerting, which reads
   # cnpg_pg_stat_archiver_* - those come from Postgres itself, so unlike the operator's

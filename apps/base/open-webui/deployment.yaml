@@ -20,6 +20,11 @@ spec:
       containers:
         - name: open-webui
           image: ghcr.io/open-webui/open-webui:v0.11.1
+          # Requests from 10 days of measured usage (Oct 2026); no limits on purpose.
+          resources:
+            requests:
+              cpu: 15m
+              memory: 960Mi
           ports:
             - containerPort: 8080
               name: http

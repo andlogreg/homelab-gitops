@@ -24,6 +24,11 @@ spec:
       containers:
       - name: litellm
         image: docker.litellm.ai/berriai/litellm:v1.83.14-stable
+        # Requests from 10 days of measured usage (Oct 2026); no limits on purpose.
+        resources:
+          requests:
+            cpu: 15m
+            memory: 1216Mi
         args:
           - "--config"
           - "/app/proxy_server_config.yaml"

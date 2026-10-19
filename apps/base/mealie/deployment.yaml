@@ -23,6 +23,11 @@ spec:
       containers:
         - name: mealie
           image: ghcr.io/mealie-recipes/mealie:v3.24.0
+          # Requests from 10 days of measured usage (Oct 2026); no limits on purpose.
+          resources:
+            requests:
+              cpu: 10m
+              memory: 256Mi
           ports:
             - containerPort: 9000
           envFrom:

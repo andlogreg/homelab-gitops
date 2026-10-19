@@ -11,6 +11,13 @@ metadata:
 spec:
   instances: 1
 
+  # Requests from 10 days of measured usage (Oct 2026); no limits on purpose.
+  # Not Guaranteed, as CloudNativePG suggests: a memory limit would turn a spike into a crash.
+  resources:
+    requests:
+      cpu: 25m
+      memory: 160Mi
+
   # See the equivalent note in apps/base/mealie/postgresql.yaml: this creates the
   # PodMonitor for the metrics the instance already serves on :9187, which is what
   # makes WAL-archiving alerting possible.

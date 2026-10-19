@@ -24,6 +24,11 @@ spec:
       containers:
         - name: mealie-rag
           image: ghcr.io/andlogreg/mealierag
+          # Requests from 10 days of measured usage (Oct 2026); no limits on purpose.
+          resources:
+            requests:
+              cpu: 100m
+              memory: 224Mi
           args: ["qa-ui-client", "--api-url", "http://mealie-rag-api:8000"]
           envFrom:
             - secretRef:
@@ -70,6 +75,11 @@ spec:
       containers:
         - name: mealie-rag-api
           image: ghcr.io/andlogreg/mealierag
+          # Requests from 10 days of measured usage (Oct 2026); no limits on purpose.
+          resources:
+            requests:
+              cpu: 10m
+              memory: 224Mi
           args: ["qa-api"]
           envFrom:
             - secretRef:

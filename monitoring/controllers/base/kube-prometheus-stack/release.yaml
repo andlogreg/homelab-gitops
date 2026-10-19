@@ -43,6 +43,11 @@ spec:
           url: http://loki.monitoring.svc.cluster.local:3100
           access: proxy
           isDefault: false
+      # Requests from 10 days of measured usage (Oct 2026); no limits on purpose.
+      resources:
+        requests:
+          cpu: 25m
+          memory: 320Mi
     prometheus:
       prometheusSpec:
         # Prometheus find all ServiceMonitors regardless of labels
@@ -85,6 +90,11 @@ spec:
         evaluationInterval: 60s
         retention: 10d
         retentionSize: 8GiB
+        # Requests from 10 days of measured usage (Oct 2026); no limits on purpose.
+        resources:
+          requests:
+            cpu: 25m
+            memory: 576Mi
     kubeScheduler:
       enabled: false
     kubeControllerManager:
