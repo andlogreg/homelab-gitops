@@ -22,7 +22,7 @@ spec:
     spec:
       containers:
         - name: mealie
-          image: ghcr.io/mealie-recipes/mealie:v3.24.0
+          image: ghcr.io/mealie-recipes/mealie:v3.29.0
           # Requests from 10 days of measured usage (Oct 2026); no limits on purpose.
           resources:
             requests:
