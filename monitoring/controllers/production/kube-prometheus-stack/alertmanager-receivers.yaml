@@ -91,6 +91,12 @@ spec:
               matchers:
                 - alertname = "KubeJobFailed"
               repeat_interval: 24h
+            # A container that has outgrown its memory request for a day: a re-measure, not an
+            # emergency, so a daily repeat.
+            - receiver: telegram
+              matchers:
+                - alertname = "ContainerMemoryAboveRequest"
+              repeat_interval: 24h
             # The household's automation appliance is unreachable. Routed by
             # alertname because it is a warning and the severity route below
             # does not reach it - and it is a warning on purpose: losing lights

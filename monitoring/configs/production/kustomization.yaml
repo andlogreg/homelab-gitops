@@ -10,9 +10,10 @@ resources:
   - podmonitor-reloader.yaml
   - podmonitor-cloudflared.yaml
   - prometheusrule-backups.yaml
+  - prometheusrule-memory-requests.yaml
   # Host rules and the cloudflared/CronJob rules are production-only because their
   # TARGETS are: the proxmox-hosts ScrapeConfig and both cloudflared deployments exist
-  # in this overlay alone. The backup rules above are shared with staging.
+  # in this overlay alone. The backup and memory-request rules above are shared with staging.
   - prometheusrule-proxmox-hosts.yaml
   - prometheusrule-workloads.yaml
   # The HomeAssistant liveness probe and its rule: production-only, because

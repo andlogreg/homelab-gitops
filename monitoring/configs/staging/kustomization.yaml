@@ -9,3 +9,5 @@ resources:
   # faithful rehearsal. It earned its keep immediately: staging's CNPG schedules were
   # dead in exactly the same way production's were, and neither was visible anywhere.
   - prometheusrule-backups.yaml
+  # The same requests are set on both clusters, so the same rule watches them.
+  - prometheusrule-memory-requests.yaml

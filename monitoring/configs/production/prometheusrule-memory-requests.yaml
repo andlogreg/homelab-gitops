@@ -1,0 +1,38 @@
+---
+# Memory requests are snapshots of measured usage (D40). On k3s the kubelet never evicts for
+# memory: the kernel's OOM killer picks the process furthest above its container's request, so a
+# container that outgrows its request loses its protection without a sound.
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: memory-requests
+  namespace: monitoring
+spec:
+  groups:
+    - name: memory-requests
+      rules:
+        # Above for 90% of the last day, once the container has 22 h of it (264 five-minute
+        # steps), so startup memory and nightly jobs never fire it. A restarted container leaves
+        # one series per cgroup: max by merges them, where sum by would double its memory.
+        # Flux's and k3s's requests are their install manifests' defaults, never measured.
+        - alert: ContainerMemoryAboveRequest
+          expr: |-
+            quantile_over_time(0.1, (max by (namespace, pod, container) (
+              container_memory_working_set_bytes{container!="",container!="POD",image!="",namespace!~"flux-system|kube-system"}))[1d:5m])
+            > on (namespace, pod, container)
+            max by (namespace, pod, container) (max_over_time(kube_pod_container_resource_requests{resource="memory"}[15m]))
+            and on (namespace, pod, container)
+            count_over_time((max by (namespace, pod, container) (
+              container_memory_working_set_bytes{container!="",container!="POD",image!="",namespace!~"flux-system|kube-system"}))[1d:5m]) >= 264
+          # The hour stops it flapping where a container sits on its request.
+          for: 1h
+          labels:
+            severity: warning
+          annotations:
+            summary: "{{ $labels.namespace }}/{{ $labels.pod }}: container {{ $labels.container }} has outgrown its memory request"
+            description: >-
+              Its working set has been above its memory request for at least 90% of the last day,
+              at {{ $value | humanize1024 }}B or more.
+              {{- with printf `max(max_over_time(kube_pod_container_resource_requests{resource="memory",namespace="%s",pod="%s",container="%s"}[15m]))` $labels.namespace $labels.pod $labels.container | query }}
+              The request is {{ . | first | value | humanize1024 }}B.{{ end }}
+              Re-measure it and raise the request: resource-requests.md says how.

@@ -44,10 +44,11 @@ spec:
           access: proxy
           isDefault: false
       # Requests from 10 days of measured usage (Oct 2026); no limits on purpose.
+      # The memory is staging's, re-measured on 2026-10-20: it holds more page cache.
       resources:
         requests:
           cpu: 25m
-          memory: 320Mi
+          memory: 384Mi
     prometheus:
       prometheusSpec:
         # Prometheus find all ServiceMonitors regardless of labels
