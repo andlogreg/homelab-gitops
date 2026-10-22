@@ -19,7 +19,7 @@ spec:
     spec:
       containers:
         - name: homarr
-          image: ghcr.io/homarr-labs/homarr:v1.76.2
+          image: ghcr.io/homarr-labs/homarr:v1.77.2
           # Requests from 10 days of measured usage (Oct 2026); no limits on purpose.
           resources:
             requests:
