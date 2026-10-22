@@ -27,7 +27,7 @@ spec:
     spec:
       containers:
         - name: linkding
-          image: sissbruecker/linkding:1.46.2
+          image: sissbruecker/linkding:1.47.0
           # Requests from 10 days of measured usage (Oct 2026); no limits on purpose.
           resources:
             requests:
