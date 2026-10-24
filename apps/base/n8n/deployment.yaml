@@ -25,7 +25,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: n8n
-          image: n8nio/n8n:2.37.4
+          image: n8nio/n8n:2.45.3
           # Requests from 10 days of measured usage (Oct 2026); no limits on purpose.
           resources:
             requests:
