@@ -18,7 +18,7 @@ spec:
     spec:
       containers:
         - name: littlelink
-          image: ghcr.io/timothystewart6/littlelink-server:latest@sha256:0dc5c21e63e1a398e036c851b207a42a740481785af4b937b46ac4caecda1148
+          image: ghcr.io/timothystewart6/littlelink-server:latest@sha256:ac3590a50cc30fec8362666025200adfe74c5f657ea657a6e27a6d70c5489e82
           ports:
             - containerPort: 3000
           envFrom:
