@@ -94,6 +94,8 @@ change and no encryption-key rotation required.
 Verify everything before it hits the remote:
 -   Scan for leaked credentials (`gitleaks`) and block any committed `kind: Secret` that carries a
     payload (local `no-committed-secret-payload` guard).
+-   Check that every `PrometheusRule` parses, and run the alert rules' promtool unit tests in
+    `monitoring/rule-tests/` (local `promtool-rules` hook, with the promtool `mise.toml` pins).
 -   Enforce commit message styles.
 -   Lint and format YAML/Terraform.
 

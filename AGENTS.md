@@ -26,6 +26,10 @@ the Azure layer (remote state in Azure Blob, secrets in Azure Key Vault).
   *Storage Blob Data Contributor* on the state container. Keep `terraform` **pinned**, not
   `latest`: state records the version that wrote it and an older binary can't read it.
 - **Conventional Commits** are enforced (commitizen); all pre-commit hooks must pass.
+- **Alert rules are unit-tested.** The promtool tests in `monitoring/rule-tests/` name the
+  PrometheusRule manifests they load, and the `promtool-rules` hook runs them. Change a rule's test
+  with the rule. promtool is pinned in `mise.toml` to the Prometheus the kube-prometheus-stack chart
+  ships, and moves with the chart by hand: Renovate leaves it alone.
 - **Push directly to `main`** — no pull-request workflow for this repo.
 
 ## Context

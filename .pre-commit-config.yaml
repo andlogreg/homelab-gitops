@@ -22,6 +22,14 @@ repos:
         additional_dependencies: [pyyaml]
         files: \.ya?ml$
         exclude: \.example$
+      # promtool itself comes from mise.toml; pyyaml unwraps the PrometheusRule manifests for it.
+      - id: promtool-rules
+        name: promtool check and test the alert rules
+        entry: python scripts/run_rule_tests.py
+        language: python
+        additional_dependencies: [pyyaml]
+        files: (^|/)prometheusrule-[^/]+\.yaml$|^monitoring/rule-tests/|^scripts/run_rule_tests\.py$|^mise\.toml$
+        pass_filenames: false
   - repo: https://github.com/commitizen-tools/commitizen
     rev: v4.11.1
     hooks:

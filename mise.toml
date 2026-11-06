@@ -11,6 +11,9 @@ k9s = "latest"
 # state the other had written. Bump deliberately, on all machines.
 terraform = "1.14"
 velero = "latest"      # CLI for operating/verifying Velero backups on the phoenix clusters
+# The alert rules' tests (scripts/run_rule_tests.py) must run production's Prometheus, which the
+# kube-prometheus-stack chart sets: move this with the chart. Renovate leaves it alone.
+promtool = "3.13.1"
 azure-cli = { version = "latest", uvx_args = "--prerelease=allow" }
 
 [settings]

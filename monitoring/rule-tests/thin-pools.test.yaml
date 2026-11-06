@@ -1,0 +1,145 @@
+# The Davids' thin-pool alerts: the proxmox-host-thin-pool group.
+rule_files:
+  - ../configs/production/prometheusrule-proxmox-hosts.yaml
+evaluation_interval: 1m
+
+tests:
+  # 1. Healthy: david-ii's fill on 2026-10-13 and a fresh heartbeat. Nothing fires.
+  - interval: 1m
+    input_series:
+      - series: 'up{job="proxmox-node",instance="david-ii"}'
+        values: '1x180'
+      - series: 'lvm_thin_pool_used_ratio{job="proxmox-node",instance="david-ii",vg="pve",pool="data",space="data"}'
+        values: '0.6903x180'
+      - series: 'lvm_thin_pool_used_ratio{job="proxmox-node",instance="david-ii",vg="pve",pool="data",space="metadata"}'
+        values: '0.0235x180'
+      - series: 'thin_pool_textfile_run_timestamp_seconds{job="proxmox-node",instance="david-ii"}'
+        values: '0+60x180'
+    alert_rule_test:
+      - {eval_time: 3h, alertname: ProxmoxHostThinPoolSpaceLow, exp_alerts: []}
+      - {eval_time: 3h, alertname: ProxmoxHostThinPoolAlmostFull, exp_alerts: []}
+      - {eval_time: 3h, alertname: ThinPoolCollectorStale, exp_alerts: []}
+
+  # 2. Data at 85%: the warning fires at 15m, not before, and the critical never.
+  - interval: 1m
+    input_series:
+      - series: 'up{job="proxmox-node",instance="david-ii"}'
+        values: '1x60'
+      - series: 'lvm_thin_pool_used_ratio{job="proxmox-node",instance="david-ii",vg="pve",pool="data",space="data"}'
+        values: '0.85x60'
+      - series: 'thin_pool_textfile_run_timestamp_seconds{job="proxmox-node",instance="david-ii"}'
+        values: '0+60x60'
+    alert_rule_test:
+      - {eval_time: 14m, alertname: ProxmoxHostThinPoolSpaceLow, exp_alerts: []}
+      - eval_time: 15m
+        alertname: ProxmoxHostThinPoolSpaceLow
+        exp_alerts:
+          - exp_labels: {severity: warning, job: proxmox-node, instance: david-ii, vg: pve, pool: data, space: data}
+            exp_annotations:
+              summary: "Thin pool pve/data on david-ii is 85% full (data)"
+              description: "The pool holds every guest disk on david-ii. Full data makes every guest's writes fail after 60 s, and full metadata needs an offline repair. Find what is growing before it reaches 90%."
+      - {eval_time: 60m, alertname: ProxmoxHostThinPoolAlmostFull, exp_alerts: []}
+
+  # 3. Data at 95%: the critical fires at 5m, not before.
+  - interval: 1m
+    input_series:
+      - series: 'up{job="proxmox-node",instance="david-ii"}'
+        values: '1x30'
+      - series: 'lvm_thin_pool_used_ratio{job="proxmox-node",instance="david-ii",vg="pve",pool="data",space="data"}'
+        values: '0.95x30'
+      - series: 'thin_pool_textfile_run_timestamp_seconds{job="proxmox-node",instance="david-ii"}'
+        values: '0+60x30'
+    alert_rule_test:
+      - {eval_time: 4m, alertname: ProxmoxHostThinPoolAlmostFull, exp_alerts: []}
+      - eval_time: 5m
+        alertname: ProxmoxHostThinPoolAlmostFull
+        exp_alerts:
+          - exp_labels: {severity: critical, job: proxmox-node, instance: david-ii, vg: pve, pool: data, space: data}
+            exp_annotations:
+              summary: "Thin pool pve/data on david-ii is 95% full (data)"
+              description: "Stop whatever is writing, or extend the pool into the volume group's free space (alerting runbook). Full data makes every guest's writes on david-ii fail after 60 s, and full metadata needs an offline repair."
+
+  # 4. Metadata at exactly 80% counts: the warning fires at 15m.
+  - interval: 1m
+    input_series:
+      - series: 'up{job="proxmox-node",instance="david-i"}'
+        values: '1x30'
+      - series: 'lvm_thin_pool_used_ratio{job="proxmox-node",instance="david-i",vg="pve",pool="data",space="data"}'
+        values: '0.5x30'
+      - series: 'lvm_thin_pool_used_ratio{job="proxmox-node",instance="david-i",vg="pve",pool="data",space="metadata"}'
+        values: '0.8x30'
+      - series: 'thin_pool_textfile_run_timestamp_seconds{job="proxmox-node",instance="david-i"}'
+        values: '0+60x30'
+    alert_rule_test:
+      - eval_time: 15m
+        alertname: ProxmoxHostThinPoolSpaceLow
+        exp_alerts:
+          - exp_labels: {severity: warning, job: proxmox-node, instance: david-i, vg: pve, pool: data, space: metadata}
+            exp_annotations:
+              summary: "Thin pool pve/data on david-i is 80% full (metadata)"
+              description: "The pool holds every guest disk on david-i. Full data makes every guest's writes fail after 60 s, and full metadata needs an offline repair. Find what is growing before it reaches 90%."
+
+  # 5. Just under 80%: nothing.
+  - interval: 1m
+    input_series:
+      - series: 'lvm_thin_pool_used_ratio{job="proxmox-node",instance="david-ii",vg="pve",pool="data",space="data"}'
+        values: '0.7999x60'
+    alert_rule_test:
+      - {eval_time: 60m, alertname: ProxmoxHostThinPoolSpaceLow, exp_alerts: []}
+
+  # 6. The test hook's synthetic pool is labelled as a test.
+  - interval: 1m
+    input_series:
+      - series: 'lvm_thin_pool_used_ratio{job="proxmox-node",instance="david-i",vg="test",pool="synthetic",space="data"}'
+        values: '0.95x30'
+    alert_rule_test:
+      - eval_time: 5m
+        alertname: ProxmoxHostThinPoolAlmostFull
+        exp_alerts:
+          - exp_labels: {severity: critical, job: proxmox-node, instance: david-i, vg: test, pool: synthetic, space: data}
+            exp_annotations:
+              summary: "TEST, nothing is wrong: Thin pool test/synthetic on david-i is 95% full (data)"
+              description: "Stop whatever is writing, or extend the pool into the volume group's free space (alerting runbook). Full data makes every guest's writes on david-i fail after 60 s, and full metadata needs an offline repair."
+
+  # 7. The collector stops at 10m: its heartbeat is over 5 minutes old from 16m, so the
+  #    alert fires at 26m, not before.
+  - interval: 1m
+    input_series:
+      - series: 'up{job="proxmox-node",instance="david-ii"}'
+        values: '1x60'
+      - series: 'thin_pool_textfile_run_timestamp_seconds{job="proxmox-node",instance="david-ii"}'
+        values: '0+60x10 600x50'
+    alert_rule_test:
+      - {eval_time: 25m, alertname: ThinPoolCollectorStale, exp_alerts: []}
+      - eval_time: 26m
+        alertname: ThinPoolCollectorStale
+        exp_alerts:
+          - exp_labels: {severity: warning, job: proxmox-node, instance: david-ii}
+            exp_annotations:
+              summary: "Thin pool collector is stale on david-ii"
+              description: "thin-pool.sh has not written for over 5 minutes on david-ii, so a filling pool would raise nothing. Check thin-pool.timer."
+
+  # 8. The host answers but the collector's file is missing: the second arm fires at 10m.
+  - interval: 1m
+    input_series:
+      - series: 'up{job="proxmox-node",instance="david-i"}'
+        values: '1x30'
+    alert_rule_test:
+      - {eval_time: 9m, alertname: ThinPoolCollectorStale, exp_alerts: []}
+      - eval_time: 10m
+        alertname: ThinPoolCollectorStale
+        exp_alerts:
+          - exp_labels: {severity: warning, job: proxmox-node, instance: david-i}
+            exp_annotations:
+              summary: "Thin pool collector is stale on david-i"
+              description: "thin-pool.sh has not written for over 5 minutes on david-i, so a filling pool would raise nothing. Check thin-pool.timer."
+
+  # 9. The host goes down at 10m and its series go stale: this alert stays quiet.
+  - interval: 1m
+    input_series:
+      - series: 'up{job="proxmox-node",instance="david-ii"}'
+        values: '1x10 0x40'
+      - series: 'thin_pool_textfile_run_timestamp_seconds{job="proxmox-node",instance="david-ii"}'
+        values: '0+60x10 stale'
+    alert_rule_test:
+      - {eval_time: 45m, alertname: ThinPoolCollectorStale, exp_alerts: []}

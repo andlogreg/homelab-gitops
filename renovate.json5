@@ -85,6 +85,17 @@
     },
     {
       description: [
+        'promtool runs the unit tests of the alert rules, so it must be the Prometheus',
+        'that production runs, and the kube-prometheus-stack chart decides that version.',
+        'Renovate would offer the newest promtool instead. It moves by hand, with the',
+        'chart: see the comment on the chart version in its HelmRelease.',
+      ],
+      matchManagers: ['mise'],
+      matchDepNames: ['promtool'],
+      enabled: false,
+    },
+    {
+      description: [
         'The Azure object-store plugin is version-locked to the Velero SERVER,',
         'not to the chart: plugin v1.13.x <-> Velero v1.17.x, v1.14.x <-> v1.18.x.',
         'Renovate cannot see that, and a mismatch breaks the backup path without',

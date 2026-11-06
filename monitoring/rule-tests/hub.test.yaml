@@ -1,0 +1,211 @@
+# The hub's seven alerts. magsafe.test.yaml covers the three Magsafe alerts in the same file.
+rule_files:
+  - ../configs/production/prometheusrule-hub.yaml
+evaluation_interval: 1m
+
+tests:
+  # 1. Healthy hub: nothing fires, including a nearly full tmpfs the rules must ignore.
+  - interval: 1m
+    input_series:
+      - series: 'up{job="hub",instance="hub"}'
+        values: '1x180'
+      - series: 'node_systemd_unit_state{job="hub",instance="hub",name="syncthing@syncthing.service",state="active",type="simple"}'
+        values: '1x180'
+      - series: 'node_filesystem_avail_bytes{job="hub",instance="hub",device="/dev/sdb",fstype="ext4",mountpoint="/srv/data"}'
+        values: '37x180'
+      - series: 'node_filesystem_size_bytes{job="hub",instance="hub",device="/dev/sdb",fstype="ext4",mountpoint="/srv/data"}'
+        values: '100x180'
+      - series: 'node_filesystem_readonly{job="hub",instance="hub",device="/dev/sdb",fstype="ext4",mountpoint="/srv/data"}'
+        values: '0x180'
+      - series: 'node_filesystem_avail_bytes{job="hub",instance="hub",device="tmpfs",fstype="tmpfs",mountpoint="/run"}'
+        values: '1x180'
+      - series: 'node_filesystem_size_bytes{job="hub",instance="hub",device="tmpfs",fstype="tmpfs",mountpoint="/run"}'
+        values: '100x180'
+      - series: 'node_filesystem_readonly{job="hub",instance="hub",device="tmpfs",fstype="tmpfs",mountpoint="/run"}'
+        values: '1x180'
+      - series: 'probe_success{job="photoprism",instance="http://192.168.0.44:2342/readyz"}'
+        values: '1x180'
+      - series: 'node_vmstat_oom_kill{job="hub",instance="hub"}'
+        values: '0x180'
+    alert_rule_test:
+      - {eval_time: 3h, alertname: HubDown, exp_alerts: []}
+      - {eval_time: 3h, alertname: HubFilesystemSpaceLow, exp_alerts: []}
+      - {eval_time: 3h, alertname: HubFilesystemAlmostFull, exp_alerts: []}
+      - {eval_time: 3h, alertname: HubFilesystemReadOnly, exp_alerts: []}
+      - {eval_time: 3h, alertname: HubSyncthingDown, exp_alerts: []}
+      - {eval_time: 3h, alertname: HubPhotoPrismDown, exp_alerts: []}
+      - {eval_time: 3h, alertname: HubOomKill, exp_alerts: []}
+
+  # 2. The hub stops answering at 10m: its series go stale. Only HubDown fires, after 15m,
+  #    although PhotoPrism's probe fails too.
+  - interval: 1m
+    input_series:
+      - series: 'up{job="hub",instance="hub"}'
+        values: '1x10 0x40'
+      - series: 'node_systemd_unit_state{job="hub",instance="hub",name="syncthing@syncthing.service",state="active",type="simple"}'
+        values: '1x10 stale'
+      - series: 'probe_success{job="photoprism",instance="http://192.168.0.44:2342/readyz"}'
+        values: '1x10 0x40'
+    alert_rule_test:
+      - {eval_time: 24m, alertname: HubDown, exp_alerts: []}
+      - eval_time: 26m
+        alertname: HubDown
+        exp_alerts:
+          - exp_labels: {severity: warning, job: hub, instance: hub}
+            exp_annotations:
+              summary: "The hub has not answered Prometheus for 15 minutes"
+              description: "The hub VM, or its node_exporter, is down. If it is the VM, sync for every device, PhotoPrism and the backups have stopped with it."
+      - {eval_time: 40m, alertname: HubSyncthingDown, exp_alerts: []}
+      - {eval_time: 40m, alertname: HubPhotoPrismDown, exp_alerts: []}
+
+  # 3. The target is gone altogether (ScrapeConfig removed): HubDown through absent().
+  - interval: 1m
+    input_series:
+      - series: 'probe_success{job="photoprism",instance="http://192.168.0.44:2342/readyz"}'
+        values: '1x30'
+    alert_rule_test:
+      - eval_time: 16m
+        alertname: HubDown
+        exp_alerts:
+          - exp_labels: {severity: warning, job: hub}
+            exp_annotations:
+              summary: "The hub has not answered Prometheus for 15 minutes"
+              description: "The hub VM, or its node_exporter, is down. If it is the VM, sync for every device, PhotoPrism and the backups have stopped with it."
+      - {eval_time: 16m, alertname: HubSyncthingDown, exp_alerts: []}
+
+  # 4. Syncthing's unit stops at 10m while the hub answers.
+  - interval: 1m
+    input_series:
+      - series: 'up{job="hub",instance="hub"}'
+        values: '1x40'
+      - series: 'node_systemd_unit_state{job="hub",instance="hub",name="syncthing@syncthing.service",state="active",type="simple"}'
+        values: '1x10 0x30'
+    alert_rule_test:
+      - {eval_time: 24m, alertname: HubSyncthingDown, exp_alerts: []}
+      - eval_time: 26m
+        alertname: HubSyncthingDown
+        exp_alerts:
+          - exp_labels: {severity: warning, job: hub, instance: hub, name: syncthing@syncthing.service, state: active, type: simple}
+            exp_annotations:
+              summary: "Syncthing is not running on the hub"
+              description: "syncthing@syncthing.service has not been active for 15 minutes. Every device syncs through the hub, so sync has stopped everywhere."
+
+  # 5. The hub answers but no longer reports Syncthing's unit (the collector or its filter
+  #    broke): the absent() arm fires instead of going quiet.
+  - interval: 1m
+    input_series:
+      - series: 'up{job="hub",instance="hub"}'
+        values: '1x40'
+    alert_rule_test:
+      - eval_time: 16m
+        alertname: HubSyncthingDown
+        exp_alerts:
+          - exp_labels: {severity: warning, job: hub, name: syncthing@syncthing.service, state: active}
+            exp_annotations:
+              summary: "Syncthing is not running on the hub"
+              description: "syncthing@syncthing.service has not been active for 15 minutes. Every device syncs through the hub, so sync has stopped everywhere."
+
+  # 6. PhotoPrism stops serving at 10m while the hub answers.
+  - interval: 1m
+    input_series:
+      - series: 'up{job="hub",instance="hub"}'
+        values: '1x40'
+      - series: 'probe_success{job="photoprism",instance="http://192.168.0.44:2342/readyz"}'
+        values: '1x10 0x30'
+    alert_rule_test:
+      - {eval_time: 24m, alertname: HubPhotoPrismDown, exp_alerts: []}
+      - eval_time: 26m
+        alertname: HubPhotoPrismDown
+        exp_alerts:
+          - exp_labels: {severity: warning, job: photoprism, instance: "http://192.168.0.44:2342/readyz"}
+            exp_annotations:
+              summary: "PhotoPrism on the hub is not serving"
+              description: "PhotoPrism's /readyz has failed for 15 minutes. Imports and the web UI are down."
+
+  # 7. The probe itself is gone: the absent() arm fires.
+  - interval: 1m
+    input_series:
+      - series: 'up{job="hub",instance="hub"}'
+        values: '1x30'
+    alert_rule_test:
+      - eval_time: 16m
+        alertname: HubPhotoPrismDown
+        exp_alerts:
+          - exp_labels: {severity: warning, job: photoprism}
+            exp_annotations:
+              summary: "PhotoPrism on the hub is not serving"
+              description: "PhotoPrism's /readyz has failed for 15 minutes. Imports and the web UI are down."
+
+  # 8. /srv/data at 5% free and / at 3% free: low on both after 1h, almost full on / after 30m.
+  - interval: 1m
+    input_series:
+      - series: 'node_filesystem_avail_bytes{job="hub",instance="hub",device="/dev/sdb",fstype="ext4",mountpoint="/srv/data"}'
+        values: '5x90'
+      - series: 'node_filesystem_size_bytes{job="hub",instance="hub",device="/dev/sdb",fstype="ext4",mountpoint="/srv/data"}'
+        values: '100x90'
+      - series: 'node_filesystem_readonly{job="hub",instance="hub",device="/dev/sdb",fstype="ext4",mountpoint="/srv/data"}'
+        values: '0x90'
+      - series: 'node_filesystem_avail_bytes{job="hub",instance="hub",device="/dev/sda1",fstype="ext4",mountpoint="/"}'
+        values: '3x90'
+      - series: 'node_filesystem_size_bytes{job="hub",instance="hub",device="/dev/sda1",fstype="ext4",mountpoint="/"}'
+        values: '100x90'
+      - series: 'node_filesystem_readonly{job="hub",instance="hub",device="/dev/sda1",fstype="ext4",mountpoint="/"}'
+        values: '0x90'
+    alert_rule_test:
+      - {eval_time: 29m, alertname: HubFilesystemAlmostFull, exp_alerts: []}
+      - eval_time: 31m
+        alertname: HubFilesystemAlmostFull
+        exp_alerts:
+          - exp_labels: {severity: critical, job: hub, instance: hub, device: /dev/sda1, fstype: ext4, mountpoint: /}
+            exp_annotations:
+              summary: "hub / is nearly full (3.0% free)"
+              description: "Syncthing stops syncing a folder on /srv/data below 1% free."
+      - {eval_time: 59m, alertname: HubFilesystemSpaceLow, exp_alerts: []}
+      - eval_time: 61m
+        alertname: HubFilesystemSpaceLow
+        exp_alerts:
+          - exp_labels: {severity: warning, job: hub, instance: hub, device: /dev/sdb, fstype: ext4, mountpoint: /srv/data}
+            exp_annotations:
+              summary: "hub /srv/data is below 10% free"
+              description: "Only 5.0% of /srv/data remains on the hub."
+          - exp_labels: {severity: warning, job: hub, instance: hub, device: /dev/sda1, fstype: ext4, mountpoint: /}
+            exp_annotations:
+              summary: "hub / is below 10% free"
+              description: "Only 3.0% of / remains on the hub."
+
+  # 9. /srv/data remounted read-only at 10m: HubFilesystemReadOnly, and no space alerts for it.
+  - interval: 1m
+    input_series:
+      - series: 'node_filesystem_avail_bytes{job="hub",instance="hub",device="/dev/sdb",fstype="ext4",mountpoint="/srv/data"}'
+        values: '3x90'
+      - series: 'node_filesystem_size_bytes{job="hub",instance="hub",device="/dev/sdb",fstype="ext4",mountpoint="/srv/data"}'
+        values: '100x90'
+      - series: 'node_filesystem_readonly{job="hub",instance="hub",device="/dev/sdb",fstype="ext4",mountpoint="/srv/data"}'
+        values: '0x10 1x80'
+    alert_rule_test:
+      - {eval_time: 24m, alertname: HubFilesystemReadOnly, exp_alerts: []}
+      - eval_time: 26m
+        alertname: HubFilesystemReadOnly
+        exp_alerts:
+          - exp_labels: {severity: critical, job: hub, instance: hub, device: /dev/sdb, fstype: ext4, mountpoint: /srv/data}
+            exp_annotations:
+              summary: "The hub has remounted /srv/data read-only"
+              description: "A read-only remount almost always follows an I/O error. Nothing on it can be written: check the hub's kernel log, then david-ii's disk."
+      - {eval_time: 90m, alertname: HubFilesystemAlmostFull, exp_alerts: []}
+      - {eval_time: 90m, alertname: HubFilesystemSpaceLow, exp_alerts: []}
+
+  # 10. One OOM kill at 10m: fires on the next evaluation, clears once it leaves the 1h window.
+  - interval: 1m
+    input_series:
+      - series: 'node_vmstat_oom_kill{job="hub",instance="hub"}'
+        values: '0x10 1x80'
+    alert_rule_test:
+      - {eval_time: 9m, alertname: HubOomKill, exp_alerts: []}
+      - eval_time: 12m
+        alertname: HubOomKill
+        exp_alerts:
+          - exp_labels: {severity: warning, job: hub, instance: hub}
+            exp_annotations:
+              summary: "The kernel killed a process for lack of memory on the hub"
+              description: "An OOM kill happened on the hub in the last hour. The hub's kernel log names the process."
+      - {eval_time: 75m, alertname: HubOomKill, exp_alerts: []}

@@ -1,0 +1,182 @@
+# The Magsafe drive's three alerts. Series as the hub's node_exporter 1.7.0 exports them: a unit is
+# listed only while loaded, so a passed refresh's job and an unmounted mount go stale, and a failed
+# job stays listed as failed. Production scrapes and evaluates every 60 s.
+# promtool rejects unknown top-level keys, so each anchor is defined where it is first used.
+rule_files:
+  - ../configs/production/prometheusrule-hub.yaml
+evaluation_interval: 1m
+
+tests:
+  # 1. The drive out and nothing running: Syncthing's unit only. Nothing fires.
+  - interval: 1m
+    input_series:
+      - series: 'up{job="hub",instance="hub"}'
+        values: '1x180'
+      - series: 'node_systemd_unit_state{job="hub",instance="hub",name="syncthing@syncthing.service",state="active",type="simple"}'
+        values: '1x180'
+    alert_rule_test:
+      - {eval_time: 3h, alertname: HubMagsafeSafeToUnplug, exp_alerts: []}
+      - {eval_time: 3h, alertname: HubMagsafeStillMounted, exp_alerts: []}
+      - {eval_time: 3h, alertname: HubMagsafeRefreshStuck, exp_alerts: []}
+
+  # 2. A passed refresh, as on 2026-10-18: plugged in at 0, mounted 1-13m, the job gone at 15m,
+  #    unplugged at 40m. Safe at 17m, two minutes after the job ends, and never before; resolved
+  #    by the unplug. Nothing else fires.
+  - interval: 1m
+    input_series:
+      - series: 'node_systemd_unit_state{job="hub",instance="hub",name="dev-disk-by\\x2duuid-67AF\\x2d46AC.device",state="active"}'
+        values: '1x39 stale'
+      - series: 'node_systemd_unit_state{job="hub",instance="hub",name="hub-backup@offline.service",state="activating",type="oneshot"}'
+        values: '1x14 stale'
+      - series: 'node_systemd_unit_state{job="hub",instance="hub",name="hub-backup@offline.service",state="deactivating",type="oneshot"}'
+        values: '0x14 stale'
+      - series: 'node_systemd_unit_state{job="hub",instance="hub",name="mnt-offline.mount",state="active",type="fuseblk"}'
+        values: '_ 1x12 stale'
+    alert_rule_test:
+      - {eval_time: 5m, alertname: HubMagsafeSafeToUnplug, exp_alerts: []}
+      - {eval_time: 14m, alertname: HubMagsafeSafeToUnplug, exp_alerts: []}
+      - {eval_time: 16m, alertname: HubMagsafeSafeToUnplug, exp_alerts: []}
+      - eval_time: 17m
+        alertname: HubMagsafeSafeToUnplug
+        exp_alerts: &safe
+          - exp_labels:
+              severity: warning
+              job: hub
+              instance: hub
+              name: 'dev-disk-by\x2duuid-67AF\x2d46AC.device'
+              state: active
+            exp_annotations:
+              summary: "The Magsafe refresh has finished, and the drive is safe to unplug"
+              description: "It is unmounted. Unplug it from david-ii: it is kept offline between refreshes. This repeats daily while it stays plugged in."
+      - {eval_time: 39m, alertname: HubMagsafeSafeToUnplug, exp_alerts: *safe}
+      - {eval_time: 40m, alertname: HubMagsafeSafeToUnplug, exp_alerts: []}
+      - {eval_time: 5m, alertname: HubMagsafeStillMounted, exp_alerts: []}
+      - {eval_time: 13m, alertname: HubMagsafeStillMounted, exp_alerts: []}
+      - {eval_time: 20m, alertname: HubMagsafeStillMounted, exp_alerts: []}
+      - {eval_time: 20m, alertname: HubMagsafeRefreshStuck, exp_alerts: []}
+
+  # 3. `could not unmount`: the job fails at 15m and stays listed as failed, the drive still
+  #    mounted. Do-not-unplug at 17m, and the safe message never.
+  - interval: 1m
+    input_series:
+      - series: 'node_systemd_unit_state{job="hub",instance="hub",name="dev-disk-by\\x2duuid-67AF\\x2d46AC.device",state="active"}'
+        values: '1x60'
+      - series: 'node_systemd_unit_state{job="hub",instance="hub",name="hub-backup@offline.service",state="activating",type="oneshot"}'
+        values: '1x14 0x46'
+      - series: 'node_systemd_unit_state{job="hub",instance="hub",name="hub-backup@offline.service",state="failed",type="oneshot"}'
+        values: '0x14 1x46'
+      - series: 'node_systemd_unit_state{job="hub",instance="hub",name="mnt-offline.mount",state="active",type="fuseblk"}'
+        values: '_ 1x59'
+    alert_rule_test:
+      - {eval_time: 16m, alertname: HubMagsafeStillMounted, exp_alerts: []}
+      - eval_time: 17m
+        alertname: HubMagsafeStillMounted
+        exp_alerts: &mounted_fuse
+          - exp_labels: {severity: warning, job: hub, instance: hub, name: mnt-offline.mount, state: active, type: fuseblk}
+            exp_annotations: &mounted_ann
+              summary: "Do not unplug the Magsafe drive: it is still mounted"
+              description: "No refresh is running, but /mnt/offline is still mounted on the hub. Unplugged now, its exFAT could be damaged. The hub runbook says how to unmount it."
+      - {eval_time: 60m, alertname: HubMagsafeStillMounted, exp_alerts: *mounted_fuse}
+      - {eval_time: 17m, alertname: HubMagsafeSafeToUnplug, exp_alerts: []}
+      - {eval_time: 60m, alertname: HubMagsafeSafeToUnplug, exp_alerts: []}
+
+  # 4. A refresh that hangs holding the drive: do-not-unplug at 2 h, not a minute before.
+  - interval: 1m
+    input_series:
+      - series: 'node_systemd_unit_state{job="hub",instance="hub",name="dev-disk-by\\x2duuid-67AF\\x2d46AC.device",state="active"}'
+        values: '1x180'
+      - series: 'node_systemd_unit_state{job="hub",instance="hub",name="hub-backup@offline.service",state="activating",type="oneshot"}'
+        values: '1x180'
+      - series: 'node_systemd_unit_state{job="hub",instance="hub",name="mnt-offline.mount",state="active",type="fuseblk"}'
+        values: '_ 1x179'
+    alert_rule_test:
+      - {eval_time: 119m, alertname: HubMagsafeRefreshStuck, exp_alerts: []}
+      - eval_time: 2h
+        alertname: HubMagsafeRefreshStuck
+        exp_alerts:
+          - exp_labels: {severity: warning, job: hub, instance: hub, name: hub-backup@offline.service, state: activating, type: oneshot}
+            exp_annotations:
+              summary: "Do not unplug the Magsafe drive: its refresh has run for 2 hours"
+              description: "A refresh takes about 15 minutes, so this one is stuck or waiting for another job's lock. Its journal on the hub says which: journalctl -u hub-backup@offline"
+      - {eval_time: 2h, alertname: HubMagsafeSafeToUnplug, exp_alerts: []}
+      - {eval_time: 2h, alertname: HubMagsafeStillMounted, exp_alerts: []}
+
+  # 5. A refresh that waits 40 min for another job's lock, unmounted but running: no safe message
+  #    until it has run and ended (job gone at 60m, safe at 62m).
+  - interval: 1m
+    input_series:
+      - series: 'node_systemd_unit_state{job="hub",instance="hub",name="dev-disk-by\\x2duuid-67AF\\x2d46AC.device",state="active"}'
+        values: '1x80'
+      - series: 'node_systemd_unit_state{job="hub",instance="hub",name="hub-backup@offline.service",state="activating",type="oneshot"}'
+        values: '1x59 stale'
+      - series: 'node_systemd_unit_state{job="hub",instance="hub",name="mnt-offline.mount",state="active",type="fuseblk"}'
+        values: '_x40 1x15 stale'
+    alert_rule_test:
+      - {eval_time: 30m, alertname: HubMagsafeSafeToUnplug, exp_alerts: []}
+      - {eval_time: 61m, alertname: HubMagsafeSafeToUnplug, exp_alerts: []}
+      - {eval_time: 62m, alertname: HubMagsafeSafeToUnplug, exp_alerts: *safe}
+
+  # 6. The hub boots with the drive in, and the refresh's start waits two evaluations for the
+  #    network: the drive looks idle at 0 and 1m. No safe message until that refresh has ended.
+  - interval: 1m
+    input_series:
+      - series: 'node_systemd_unit_state{job="hub",instance="hub",name="dev-disk-by\\x2duuid-67AF\\x2d46AC.device",state="active"}'
+        values: '1x30'
+      - series: 'node_systemd_unit_state{job="hub",instance="hub",name="hub-backup@offline.service",state="activating",type="oneshot"}'
+        values: '_x2 1x14 stale'
+      - series: 'node_systemd_unit_state{job="hub",instance="hub",name="mnt-offline.mount",state="active",type="fuseblk"}'
+        values: '_x3 1x12 stale'
+    alert_rule_test:
+      - {eval_time: 1m, alertname: HubMagsafeSafeToUnplug, exp_alerts: []}
+      - {eval_time: 2m, alertname: HubMagsafeSafeToUnplug, exp_alerts: []}
+      - {eval_time: 3m, alertname: HubMagsafeSafeToUnplug, exp_alerts: []}
+      - {eval_time: 18m, alertname: HubMagsafeSafeToUnplug, exp_alerts: []}
+      - {eval_time: 19m, alertname: HubMagsafeSafeToUnplug, exp_alerts: *safe}
+
+  # 7. A refresh that fails before it mounts (an unclean exFAT): the job stays failed, the drive
+  #    was never mounted, so it is safe to unplug at 4m. healthchecks.io carries the failure.
+  - interval: 1m
+    input_series:
+      - series: 'node_systemd_unit_state{job="hub",instance="hub",name="dev-disk-by\\x2duuid-67AF\\x2d46AC.device",state="active"}'
+        values: '1x20'
+      - series: 'node_systemd_unit_state{job="hub",instance="hub",name="hub-backup@offline.service",state="activating",type="oneshot"}'
+        values: '1x1 0x19'
+      - series: 'node_systemd_unit_state{job="hub",instance="hub",name="hub-backup@offline.service",state="failed",type="oneshot"}'
+        values: '0x1 1x19'
+    alert_rule_test:
+      - {eval_time: 3m, alertname: HubMagsafeSafeToUnplug, exp_alerts: []}
+      - {eval_time: 4m, alertname: HubMagsafeSafeToUnplug, exp_alerts: *safe}
+      - {eval_time: 10m, alertname: HubMagsafeStillMounted, exp_alerts: []}
+
+  # 8. The end-to-end test: the drive out, a tmpfs at /mnt/offline from 5m to 25m. Do-not-unplug
+  #    at 7m, resolved by the unmount. No safe message, with no drive.
+  - interval: 1m
+    input_series:
+      - series: 'node_systemd_unit_state{job="hub",instance="hub",name="mnt-offline.mount",state="active",type="tmpfs"}'
+        values: '_x5 1x20 stale'
+    alert_rule_test:
+      - {eval_time: 6m, alertname: HubMagsafeStillMounted, exp_alerts: []}
+      - eval_time: 7m
+        alertname: HubMagsafeStillMounted
+        exp_alerts:
+          - exp_labels: {severity: warning, job: hub, instance: hub, name: mnt-offline.mount, state: active, type: tmpfs}
+            exp_annotations: *mounted_ann
+      - {eval_time: 26m, alertname: HubMagsafeStillMounted, exp_alerts: []}
+      - {eval_time: 10m, alertname: HubMagsafeSafeToUnplug, exp_alerts: []}
+
+  # 9. Attached and idle, then mounted by hand from 5m to 25m (the runbook's read or repair, with
+  #    the refresh masked): safe, then do-not-unplug while mounted, then safe again.
+  - interval: 1m
+    input_series:
+      - series: 'node_systemd_unit_state{job="hub",instance="hub",name="dev-disk-by\\x2duuid-67AF\\x2d46AC.device",state="active"}'
+        values: '1x40'
+      - series: 'node_systemd_unit_state{job="hub",instance="hub",name="mnt-offline.mount",state="active",type="fuseblk"}'
+        values: '_x5 1x20 stale'
+    alert_rule_test:
+      - {eval_time: 3m, alertname: HubMagsafeSafeToUnplug, exp_alerts: *safe}
+      - {eval_time: 5m, alertname: HubMagsafeSafeToUnplug, exp_alerts: []}
+      - {eval_time: 7m, alertname: HubMagsafeStillMounted, exp_alerts: *mounted_fuse}
+      - {eval_time: 25m, alertname: HubMagsafeSafeToUnplug, exp_alerts: []}
+      - {eval_time: 27m, alertname: HubMagsafeSafeToUnplug, exp_alerts: []}
+      - {eval_time: 28m, alertname: HubMagsafeSafeToUnplug, exp_alerts: *safe}
+      - {eval_time: 28m, alertname: HubMagsafeStillMounted, exp_alerts: []}

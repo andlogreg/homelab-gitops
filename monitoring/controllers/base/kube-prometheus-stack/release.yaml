@@ -11,6 +11,7 @@ spec:
       # itself current and does the opposite: it hides which version is actually
       # deployed, and Renovate leaves it alone because the resolved version still
       # satisfies the range. This one sat seven majors behind before anyone noticed.
+      # promtool in mise.toml must match the Prometheus this chart ships: move it with the chart.
       version: "87.19.1"
       sourceRef:
         kind: HelmRepository
