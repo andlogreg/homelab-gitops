@@ -121,6 +121,12 @@ spec:
               group_wait: 0s
               group_interval: 1m
               repeat_interval: 12h
+            # Personal data waiting for its passphrase after a boot (D42). Nothing is lost while it
+            # waits, but the hub's backups do not run, so it repeats twice a day.
+            - receiver: telegram
+              matchers:
+                - alertname = "PersonalDataLocked"
+              repeat_interval: 12h
             # The hub's warnings: sync, PhotoPrism or the VM down, a filling disk, an OOM kill, and
             # when the Magsafe drive may be unplugged. Same-day problems, so a daily repeat. Its
             # criticals ride the severity route.

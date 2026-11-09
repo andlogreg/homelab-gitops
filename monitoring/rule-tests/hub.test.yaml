@@ -1,4 +1,4 @@
-# The hub's seven alerts. magsafe.test.yaml covers the three Magsafe alerts in the same file.
+# The hub's eight alerts. magsafe.test.yaml covers the three Magsafe alerts in the same file.
 rule_files:
   - ../configs/production/prometheusrule-hub.yaml
 evaluation_interval: 1m
@@ -27,8 +27,11 @@ tests:
         values: '1x180'
       - series: 'node_vmstat_oom_kill{job="hub",instance="hub"}'
         values: '0x180'
+      - series: 'node_systemd_unit_state{job="hub",instance="hub",name="srv-data.mount",state="active",type="ext4"}'
+        values: '1x180'
     alert_rule_test:
       - {eval_time: 3h, alertname: HubDown, exp_alerts: []}
+      - {eval_time: 3h, alertname: PersonalDataLocked, exp_alerts: []}
       - {eval_time: 3h, alertname: HubFilesystemSpaceLow, exp_alerts: []}
       - {eval_time: 3h, alertname: HubFilesystemAlmostFull, exp_alerts: []}
       - {eval_time: 3h, alertname: HubFilesystemReadOnly, exp_alerts: []}
@@ -73,10 +76,12 @@ tests:
               description: "The hub VM, or its node_exporter, is down. If it is the VM, sync for every device, PhotoPrism and the backups have stopped with it."
       - {eval_time: 16m, alertname: HubSyncthingDown, exp_alerts: []}
 
-  # 4. Syncthing's unit stops at 10m while the hub answers.
+  # 4. Syncthing's unit stops at 10m while the hub answers and /srv/data is mounted.
   - interval: 1m
     input_series:
       - series: 'up{job="hub",instance="hub"}'
+        values: '1x40'
+      - series: 'node_systemd_unit_state{job="hub",instance="hub",name="srv-data.mount",state="active",type="ext4"}'
         values: '1x40'
       - series: 'node_systemd_unit_state{job="hub",instance="hub",name="syncthing@syncthing.service",state="active",type="simple"}'
         values: '1x10 0x30'
@@ -105,10 +110,12 @@ tests:
               summary: "Syncthing is not running on the hub"
               description: "syncthing@syncthing.service has not been active for 15 minutes. Every device syncs through the hub, so sync has stopped everywhere."
 
-  # 6. PhotoPrism stops serving at 10m while the hub answers.
+  # 6. PhotoPrism stops serving at 10m while the hub answers and /srv/data is mounted.
   - interval: 1m
     input_series:
       - series: 'up{job="hub",instance="hub"}'
+        values: '1x40'
+      - series: 'node_systemd_unit_state{job="hub",instance="hub",name="srv-data.mount",state="active",type="ext4"}'
         values: '1x40'
       - series: 'probe_success{job="photoprism",instance="http://192.168.0.44:2342/readyz"}'
         values: '1x10 0x30'
@@ -209,3 +216,30 @@ tests:
               summary: "The kernel killed a process for lack of memory on the hub"
               description: "An OOM kill happened on the hub in the last hour. The hub's kernel log names the process."
       - {eval_time: 75m, alertname: HubOomKill, exp_alerts: []}
+
+  # 11. A boot after a power cut: /srv/data stays locked, so Syncthing and PhotoPrism are down.
+  #     Only PersonalDataLocked fires. It is unlocked at 40m, and everything clears.
+  - interval: 1m
+    input_series:
+      - series: 'up{job="hub",instance="hub"}'
+        values: '1x70'
+      - series: 'node_systemd_unit_state{job="hub",instance="hub",name="srv-data.mount",state="active",type="ext4"}'
+        values: '0x40 1x30'
+      - series: 'node_systemd_unit_state{job="hub",instance="hub",name="syncthing@syncthing.service",state="active",type="simple"}'
+        values: '0x40 1x30'
+      - series: 'probe_success{job="photoprism",instance="http://192.168.0.44:2342/readyz"}'
+        values: '0x40 1x30'
+    alert_rule_test:
+      - {eval_time: 9m, alertname: PersonalDataLocked, exp_alerts: []}
+      - eval_time: 11m
+        alertname: PersonalDataLocked
+        exp_alerts:
+          - exp_labels: {severity: warning, job: hub, instance: hub, name: srv-data.mount, state: active, type: ext4}
+            exp_annotations:
+              summary: "The hub's personal data is locked"
+              description: "/srv/data is not mounted, so sync, PhotoPrism and the backups are waiting. After a boot that is the encrypted volume waiting for its passphrase: run scripts/unlock-personal-data from homelab-infra, on the laptop or in the devcontainer."
+      - {eval_time: 35m, alertname: HubSyncthingDown, exp_alerts: []}
+      - {eval_time: 35m, alertname: HubPhotoPrismDown, exp_alerts: []}
+      - {eval_time: 60m, alertname: PersonalDataLocked, exp_alerts: []}
+      - {eval_time: 60m, alertname: HubSyncthingDown, exp_alerts: []}
+      - {eval_time: 60m, alertname: HubPhotoPrismDown, exp_alerts: []}
