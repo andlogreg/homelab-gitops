@@ -1,0 +1,26 @@
+---
+# Production's encrypted volume for the Obsidian vault (Forgejo) and the health store, opened by
+# hand after each boot (D42). Until then both wait. The hub's lock alert, with the same name, is
+# in prometheusrule-hub.yaml, so after a power cut one Telegram message names both.
+#
+# Only a lock that lasts through a nightly backup adds more: Velero's and CNPG's backup alerts
+# for the two volumes. Those gaps are real, so they are not suppressed.
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: personal-data
+  namespace: monitoring
+spec:
+  groups:
+    - name: personal-data
+      rules:
+        - alert: PersonalDataLocked
+          expr: |-
+            absent(node_filesystem_size_bytes{job="node-exporter",instance="192.168.0.56:9100",mountpoint="/srv/personal"})
+            and on() up{job="node-exporter",instance="192.168.0.56:9100"} == 1
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Production's personal data is locked"
+            description: "/srv/personal is not mounted on phoenix-production-00, so Forgejo (the vault) and the health store are waiting. After a boot that is the encrypted volume waiting for its passphrase: run scripts/unlock-personal-data from homelab-infra, on the laptop or in the devcontainer."

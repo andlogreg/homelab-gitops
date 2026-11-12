@@ -1,0 +1,42 @@
+# Production's PersonalDataLocked. The hub's is tested in hub.test.yaml.
+rule_files:
+  - ../configs/production/prometheusrule-personal-data.yaml
+evaluation_interval: 1m
+
+tests:
+  # 1. The volume is mounted: nothing fires.
+  - interval: 1m
+    input_series:
+      - series: 'up{job="node-exporter",instance="192.168.0.56:9100"}'
+        values: '1x60'
+      - series: 'node_filesystem_size_bytes{job="node-exporter",instance="192.168.0.56:9100",device="/dev/mapper/personal",fstype="ext4",mountpoint="/srv/personal"}'
+        values: '16000000000x60'
+    alert_rule_test:
+      - {eval_time: 1h, alertname: PersonalDataLocked, exp_alerts: []}
+
+  # 2. A boot after a power cut: the exporter answers, but /srv/personal is not mounted. It fires
+  #    after 10 minutes, and clears once the volume is unlocked at 40m.
+  - interval: 1m
+    input_series:
+      - series: 'up{job="node-exporter",instance="192.168.0.56:9100"}'
+        values: '1x70'
+      - series: 'node_filesystem_size_bytes{job="node-exporter",instance="192.168.0.56:9100",device="/dev/mapper/personal",fstype="ext4",mountpoint="/srv/personal"}'
+        values: '_x40 16000000000x30'
+    alert_rule_test:
+      - {eval_time: 9m, alertname: PersonalDataLocked, exp_alerts: []}
+      - eval_time: 11m
+        alertname: PersonalDataLocked
+        exp_alerts:
+          - exp_labels: {severity: warning, job: node-exporter, instance: "192.168.0.56:9100", mountpoint: /srv/personal}
+            exp_annotations:
+              summary: "Production's personal data is locked"
+              description: "/srv/personal is not mounted on phoenix-production-00, so Forgejo (the vault) and the health store are waiting. After a boot that is the encrypted volume waiting for its passphrase: run scripts/unlock-personal-data from homelab-infra, on the laptop or in the devcontainer."
+      - {eval_time: 50m, alertname: PersonalDataLocked, exp_alerts: []}
+
+  # 3. The exporter itself is down: this rule stays quiet, and the target's own alert covers it.
+  - interval: 1m
+    input_series:
+      - series: 'up{job="node-exporter",instance="192.168.0.56:9100"}'
+        values: '0x60'
+    alert_rule_test:
+      - {eval_time: 1h, alertname: PersonalDataLocked, exp_alerts: []}

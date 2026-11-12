@@ -24,6 +24,8 @@ resources:
   - scrapeconfig-hub.yaml
   - probe-photoprism.yaml
   - prometheusrule-hub.yaml
+  # Production's encrypted volume for the vault and the health store (D42).
+  - prometheusrule-personal-data.yaml
 
 # Dashboard-as-code: the kube-prometheus-stack Grafana sidecar auto-imports
 # ConfigMaps labelled grafana_dashboard=1 from the monitoring namespace.
