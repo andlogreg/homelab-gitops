@@ -1,0 +1,20 @@
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: health-db-credentials
+spec:
+  target:
+    name: health-db-01-app
+    template:
+      data:
+        pgpass: "health-db-01-rw:5432:health:health:{{ .password }}"
+        jdbc-uri: "jdbc:postgresql://health-db-01-rw.health:5432/health?password={{ .password }}&user=health"
+        uri: "postgresql://health:{{ .password }}@health-db-01-rw.health:5432/health"
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: ScheduledBackup
+metadata:
+  name: health-db-scheduled-backup
+spec:
+  cluster:
+    name: health-db-01

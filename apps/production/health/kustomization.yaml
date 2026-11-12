@@ -3,3 +3,12 @@ kind: Kustomization
 namespace: health
 resources:
   - ../../base/health
+  # health-db-01's volume on the encrypted disk (D42).
+  - persistent-volume-encrypted.yaml
+
+patches:
+  - path: recovery.yaml
+    target:
+      kind: Cluster
+      name: health-db-00
+  - path: references_patch.yaml

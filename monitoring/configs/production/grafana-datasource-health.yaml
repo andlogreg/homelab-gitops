@@ -14,7 +14,7 @@ data:
         uid: health-postgres
         type: postgres
         access: proxy
-        url: health-db-00-rw.health:5432
+        url: health-db-01-rw.health:5432
         user: health_grafana
         isDefault: false
         editable: false

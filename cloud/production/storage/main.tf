@@ -97,9 +97,11 @@ module "storage" {
   # written to -- n8n is not in the daily Schedule and is a recorded accept-loss.
   #
   # The live generation -- velero-backups/phoenix-production-g2/, and
-  # cnpg-backups/{litellm,mealie}/*-db-01 and health/health-db-00 -- must never appear here. The
-  # CNPG serverNames did not move: those backups are not client-side encrypted, so no kopia key
-  # rotation touches them.
+  # cnpg-backups/{litellm,mealie}/*-db-01 and health/health-db-01 -- must never appear here. The
+  # litellm and mealie serverNames did not move: those backups are not client-side encrypted, so no
+  # kopia key rotation touches them. health-db-00 became health-db-01 when the health store moved to
+  # production's encrypted disk (task-131). Its archive under health/health-db-00 is retired, not
+  # live, and is kept until a decision here says otherwise.
   # version_retention_days was 30 until 2026-09-06 and pruned nothing on this account: a version
   # action is scoped by the same prefix_match as the base_blob action beside it, so it only ever
   # covered the retired prefixes. Live versions accumulated from the day versioning was switched on

@@ -1,0 +1,12 @@
+---
+# Volumes on production's encrypted disk, /srv/personal, which is opened by hand after each boot
+# (D42 in homelab-knowledge, task-131). They are static local PVs pinned to their claims, never
+# provisioned: while the disk is locked a PV's path does not exist, so its pod waits instead of
+# writing to the unencrypted root.
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: local-encrypted
+provisioner: kubernetes.io/no-provisioner
+volumeBindingMode: WaitForFirstConsumer
+reclaimPolicy: Retain

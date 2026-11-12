@@ -1,0 +1,27 @@
+---
+# health-db-01's volume on production's encrypted disk (D42). The folder is created by hand before
+# the recovery runs; kubelet never creates it, so a locked disk leaves the database waiting.
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: health-db-01-1-encrypted
+spec:
+  capacity:
+    storage: 5Gi # the Cluster's storage.size; a local volume enforces no quota
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: local-encrypted
+  claimRef:
+    namespace: health
+    name: health-db-01-1
+  local:
+    path: /srv/personal/health-db-01-1
+  nodeAffinity:
+    required:
+      nodeSelectorTerms:
+        - matchExpressions:
+            - key: kubernetes.io/hostname
+              operator: In
+              values:
+                - phoenix-production-00

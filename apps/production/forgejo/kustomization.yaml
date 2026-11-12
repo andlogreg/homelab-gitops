@@ -6,6 +6,9 @@ resources:
   - external-secret.yaml
   - ingress.yaml
   - service-ssh.yaml
+  # The vault's volume on the encrypted disk (D42).
+  - persistent-volume-encrypted.yaml
 
 patches:
   - path: velero_backup_patch.yaml
+  - path: pvc_encrypted_patch.yaml

@@ -1,0 +1,25 @@
+# health-db-00 -> health-db-01, recovered from -00's archive onto the encrypted disk (D42 in
+# homelab-knowledge, task-131). The pattern of apps/dev/mealie/recovery.yaml and the restore
+# runbook's Part A: -01 writes its own base backups and WAL under serverName health-db-01, so the
+# -00 archive it reads is never written to.
+- op: replace
+  path: /metadata/name
+  value: health-db-01
+- op: replace
+  path: /spec/bootstrap
+  value:
+    recovery:
+      source: health-db-00-archive
+      database: health
+- op: add
+  path: /spec/externalClusters
+  value:
+    - name: health-db-00-archive
+      plugin:
+        name: barman-cloud.cloudnative-pg.io
+        parameters:
+          barmanObjectName: health-db-objectstore
+          serverName: health-db-00
+- op: add
+  path: /spec/storage/storageClass
+  value: local-encrypted

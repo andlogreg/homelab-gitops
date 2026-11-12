@@ -1,0 +1,27 @@
+---
+# The Obsidian vault's home, on production's encrypted disk (D42). The folder is created by hand
+# when the data moves; kubelet never creates it, so a locked disk leaves Forgejo waiting.
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: forgejo-data-encrypted
+spec:
+  capacity:
+    storage: 1Gi # nominal, as on the claim: a local volume enforces no quota
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: local-encrypted
+  claimRef:
+    namespace: forgejo
+    name: forgejo-data
+  local:
+    path: /srv/personal/forgejo-data
+  nodeAffinity:
+    required:
+      nodeSelectorTerms:
+        - matchExpressions:
+            - key: kubernetes.io/hostname
+              operator: In
+              values:
+                - phoenix-production-00
